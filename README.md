@@ -1,107 +1,134 @@
-# PathFinder - AI-Powered Decision Assistant
+# 🌍 PathFinder – AI-Powered Decision Intelligence App
 
-PathFinder is a full-stack web application that helps users make better life and career decisions through structured analysis and AI-powered insights.
+> **“Helping you think clearly when it matters most.”**
 
-## 🎯 What It Does
+---
 
-- **Decision Analysis**: Users input a decision context, options, and priorities
-- **AI-Powered Insights**: Get structured analysis with scores and recommendations  
-- **Visual Analytics**: View results through radar charts and bar graphs
-- **Decision History**: Save and review past decisions
-- **Export Capabilities**: Download analysis as PDF reports
+## 🧭 Overview
 
-## 🛠️ Tech Stack
+**PathFinder** is a full-stack AI web application designed to help users make smarter life, career, and business decisions.
+It provides a **structured decision-making framework** powered by **AI reasoning** and **data visualization**, allowing users to evaluate trade-offs, score priorities, and view insights through interactive charts.
 
-**Frontend:**
-- Next.js 14 with TypeScript
-- Tailwind CSS for styling
-- Recharts for data visualization
-- Framer Motion for animations
+Built with **Next.js**, **FastAPI**, and **Supabase**, PathFinder combines analytical clarity with modern design to turn confusion into confidence.
 
-**Backend:**
-- FastAPI (Python)
-- Supabase (PostgreSQL) for data storage
-- Mock AI service (no API key required)
+---
 
-## 🚀 Features
+## 🎯 Core Features
 
-### Core Functionality
-- ✅ Decision input with customizable priorities and weights
-- ✅ AI analysis with score breakdowns and recommendations  
-- ✅ Confidence scoring based on analysis strength
-- ✅ Visual charts showing option comparisons
-- ✅ Decision saving and history tracking
-- ✅ PDF export for analysis reports
+### ✅ **What’s Working Now**
 
-### Technical Features
-- ✅ Responsive design for all screen sizes
-- ✅ Dark/light mode toggle
-- ✅ Type-safe with TypeScript
-- ✅ Production-ready deployment setup
-- ✅ Error handling and loading states
+* **3-Step Decision Flow:** Capture context, list options, and rank personal priorities.
+* **AI Analysis (Mocked):** Smart, realistic reasoning without real API costs.
+* **Interactive Visuals:** Radar and bar charts powered by Recharts.
+* **Decision History:** Save, edit, and delete past analyses using Supabase.
+* **PDF Export:** Generate polished, shareable decision reports.
+* **Responsive UI:** Modern layout with dark/light mode support.
+* **Deployment Ready:** Vercel + Render configurations included.
 
-## 📦 Project Structure
+### 🚧 **Planned Enhancements**
+
+* Real OpenAI integration (GPT-4 powered reasoning).
+* User authentication (Supabase Auth).
+* Data validation and improved error handling.
+* Animated loading states and toast notifications.
+* Advanced analytics and collaborative decision-making.
+* React Native mobile version.
+
+---
+
+## 🧱 Technical Architecture
+
+| Layer          | Technology                           | Purpose                               |
+| -------------- | ------------------------------------ | ------------------------------------- |
+| **Frontend**   | Next.js 14 (App Router)              | Dynamic UI and routing                |
+|                | Tailwind CSS + shadcn/ui             | Clean, modern design system           |
+|                | Framer Motion                        | Subtle animations and transitions     |
+|                | Recharts                             | Data visualization (bar/radar charts) |
+| **Backend**    | FastAPI                              | REST API for AI logic and CRUD ops    |
+| **Database**   | Supabase (PostgreSQL)                | Persistent data storage               |
+| **AI Layer**   | Mock OpenAI service                  | Simulated reasoning engine            |
+| **Deployment** | Vercel (frontend) + Render (backend) | Cloud deployment setup                |
+
+---
+
+## 📂 Folder Structure
 
 ```
 pathfinder/
-├── frontend/                 # Next.js 14 application
-│   ├── app/                 # App router pages
-│   ├── components/          # React components
-│   ├── lib/                 # Utilities and helpers
-│   └── types/               # TypeScript definitions
-└── backend/                 # FastAPI application
-    ├── app/
-    │   ├── models/          # Pydantic models
-    │   ├── services/        # Business logic
-    │   └── main.py          # FastAPI app
-    └── requirements.txt     # Python dependencies
+├── frontend/                     # Next.js 14 application
+│   ├── app/                      # App Router pages
+│   ├── components/               # Reusable UI components
+│   ├── lib/                      # Utilities and API services
+│   ├── types/                    # TypeScript interfaces
+│   └── tailwind.config.ts        # Tailwind configuration
+│
+├── backend/                      # FastAPI application
+│   ├── app/
+│   │   ├── models/               # Pydantic data models
+│   │   ├── services/             # Business logic / AI simulation
+│   │   └── main.py               # FastAPI entrypoint
+│   ├── render.yaml               # Render deployment file
+│   └── requirements.txt          # Python dependencies
+│
+└── README.md
 ```
 
-## 🚀 Quick Start
+---
 
-### Prerequisites
-- Node.js 18+ 
-- Python 3.8+
-- Supabase account (free tier)
+## 🗄️ Database Schema (Supabase)
 
-### Frontend Setup
+```sql
+CREATE TABLE decisions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    context TEXT NOT NULL,
+    options JSONB NOT NULL,
+    priorities JSONB NOT NULL,
+    analysis_result JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+---
+
+## ⚙️ API Endpoints
+
+| Method   | Endpoint            | Description                      |
+| -------- | ------------------- | -------------------------------- |
+| `POST`   | `/analyze-decision` | Run AI-powered decision analysis |
+| `POST`   | `/save-decision`    | Store a completed analysis       |
+| `GET`    | `/decisions`        | Retrieve user’s past decisions   |
+| `DELETE` | `/decisions/{id}`   | Delete a saved decision          |
+
+---
+
+## 💻 Local Development Setup
+
+### Frontend
+
 ```bash
 cd frontend
 npm install
 cp .env.local.example .env.local
-# Edit .env.local with your Supabase credentials
 npm run dev
 ```
 
-### Backend Setup  
+### Backend
+
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate   # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env
-# Edit .env with your Supabase credentials
 uvicorn app.main:app --reload --port 8000
 ```
-
-### Database Setup
-1. Create a Supabase project
-2. Run the SQL schema
-3. Update environment variables with your credentials
-
-## 🎨 How to Use
-
-1. **Create a Decision**: Enter your decision context and options
-2. **Set Priorities**: Rate importance of factors like career growth, work-life balance, etc.
-3. **Get Analysis**: Receive AI-powered scores and recommendations  
-4. **Review Results**: View charts and detailed reasoning
-5. **Save & Export**: Store decisions for later or export as PDF
-
-## 🔧 Configuration
 
 ### Environment Variables
 
 **Frontend (.env.local):**
+
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
@@ -109,23 +136,53 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_key
 ```
 
 **Backend (.env):**
+
 ```env
+OPENAI_API_KEY=optional_for_now
 SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_supabase_key
-OPENAI_API_KEY=optional_for_mock_service
 ```
 
-## 🧪 Testing
+---
 
-The application includes a mock AI service that simulates real AI analysis without requiring an OpenAI API key. This makes it easy to test all functionality locally.
+## 📊 How the AI Works (Mock Version)
 
-## 📝 Notes
+The mock service generates:
 
-- Uses mock AI service by default (no API costs)
-- Real OpenAI integration available if API key provided
-- Free Supabase tier sufficient for personal use
-- All analysis data stored securely in PostgreSQL
+* Weighted scores for each option based on user priorities.
+* Adaptive narratives (the reasoning text changes depending on score differences).
+* Context-aware suggestions for life, career, or investment decisions.
+  This allows you to test realistic AI logic even without API keys.
 
-## 🤝 Contributing
+---
 
-This is a personal project demonstrating full-stack development with modern tools and patterns.
+## 🧠 Future Roadmap
+
+### Phase 2 (Post-PLP)
+
+* 🔑 **Supabase Auth:** Add secure user login and profile management.
+* 🤖 **Real AI Analysis:** Integrate GPT-4 for deeper reasoning.
+* 📈 **Advanced Insights:** Multi-decision trends and visualization.
+* 📱 **Mobile App:** React Native version for on-the-go access.
+* 🧩 **Templates Library:** Predefined decision scenarios (career, finance, study, etc.).
+
+---
+
+## 💡 Business Impact
+
+| Stakeholder              | Value Delivered                                                           |
+| ------------------------ | ------------------------------------------------------------------------- |
+| **Users**                | Simplifies complex decision-making with clarity and data-backed insights. |
+| **Developers/Reviewers** | Demonstrates full-stack proficiency and product thinking.                 |
+| **Educational Use**      | Can serve as a teaching tool for structured decision-making.              |
+
+---
+
+## 🧑‍💻 Author
+
+**Fred Kaloki**
+AI & Software Engineering Student | PLP Academy
+📧 [charlesfred285@gmail.com](mailto:charlesfred285@gmail.com)
+🌍 [Egerton University, Kenya]
+
+---
