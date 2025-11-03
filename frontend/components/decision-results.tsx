@@ -13,7 +13,7 @@ import { Decision } from '@/types'
 
 interface DecisionResultsProps {
   result: AnalysisResult
-  decision?: Decision // Make it optional to handle null case
+  decision?: Decision | null; // Make it optional to handle null case
   onSave?: () => void
   onExport?: () => void
 }
