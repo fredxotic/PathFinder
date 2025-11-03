@@ -1,0 +1,6 @@
+.venv/
+frontend/node_modules
+frontend/public
+frontend/.env.local
+backend/test_supabase.py
+backend/.env
