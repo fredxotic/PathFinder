@@ -1,3 +1,4 @@
+// frontend/app/page.tsx
 "use client"
 
 import { useState } from 'react'
@@ -5,26 +6,34 @@ import { motion } from 'framer-motion'
 import { DecisionForm } from '@/components/decision-form'
 import { DecisionResults } from '@/components/decision-results'
 import Link from 'next/link'
-import { History } from 'lucide-react'
+import { History, User, LogOut } from 'lucide-react'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
-
+import { useAuth } from '@/contexts/auth-context'
+import { AuthForms } from '@/components/auth-forms'
 import { AnalysisResult, Decision } from '@/types'
+import { useToast } from '@/components/ui/toast'
+import { getAuthHeaders } from '@/lib/auth-headers'
 
 export default function Home() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [currentDecision, setCurrentDecision] = useState<Decision | null>(null)
+  
+  const { user, signOut, loading: authLoading } = useAuth()
+  const { toast } = useToast()
 
   const handleAnalyzeDecision = async (decisionData: Decision) => {
+    if (!user) return
+    
     setIsLoading(true)
     setCurrentDecision(decisionData)
     try {
+      const headers = await getAuthHeaders()
+      
       const response = await fetch('/api/analyze-decision', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(decisionData),
       })
 
@@ -36,34 +45,69 @@ export default function Home() {
       setAnalysisResult(result)
     } catch (error) {
       console.error('Error analyzing decision:', error)
+      toast('Analysis failed. Please try again.', 'error')
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleSaveDecision = async () => {
-    if (!analysisResult || !currentDecision) return
+    if (!analysisResult || !currentDecision || !user) return
     
     try {
-      await fetch('/api/save-decision', {
+      const response = await fetch('/api/save-decision', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          decision: currentDecision, // Use the original decision data
+          decision: currentDecision,
           result: analysisResult,
+          user_id: user.id // Make sure this is included
         }),
       })
-      // Show success message
+
+      if (!response.ok) {
+        throw new Error('Failed to save decision')
+      }
+
+      toast('Decision saved successfully!', 'success')
     } catch (error) {
       console.error('Error saving decision:', error)
+      toast('Failed to save decision', 'error')
     }
   }
 
   const handleExportPDF = () => {
     // Implement PDF export using jsPDF
     console.log('Exporting PDF...')
+  }
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
+  }
+
+  // Show auth forms if not logged in
+  if (!user && !authLoading) {
+    return <AuthForms />
+  }
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-emerald-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center mx-auto mb-4">
+            <span className="text-primary-foreground font-bold text-sm">P</span>
+          </div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -90,6 +134,16 @@ export default function Home() {
                 History
               </Button>
             </Link>
+            <Link href="/profile">
+              <Button variant="outline" size="sm">
+                <User className="w-4 h-4 mr-2" />
+                Profile
+              </Button>
+            </Link>
+            <Button variant="outline" size="sm" onClick={handleSignOut}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
             <ThemeToggle />
           </div>
         </div>
@@ -109,6 +163,9 @@ export default function Home() {
             Get structured analysis, visual insights, and AI-powered recommendations 
             for your important life and career choices.
           </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Welcome back, {user?.email}!
+          </p>
         </motion.div>
 
         {!analysisResult ? (
@@ -119,7 +176,7 @@ export default function Home() {
         ) : (
           <DecisionResults
             result={analysisResult}
-            decision={currentDecision} // Pass the original decision data
+            decision={currentDecision}
             onSave={handleSaveDecision}
             onExport={handleExportPDF}
           />

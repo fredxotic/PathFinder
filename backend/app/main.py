@@ -4,19 +4,20 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
 import os
+import uuid
 from dotenv import load_dotenv
 
 from app.models.decision import DecisionInput, AnalysisResult, SavedDecision
 from app.services.database import DatabaseService
 
-# Import both real and mock AI services
+# Import AI services
 try:
-    from app.services.ai_service import AIService
-    AI_SERVICE_AVAILABLE = True
-    print("✅ Using real OpenAI AI service")
-except ImportError:
-    AI_SERVICE_AVAILABLE = False
-    print("❌ Real AI service not available")
+    from app.services.grok_service import GrokService
+    GROK_SERVICE_AVAILABLE = True
+    print("✅ Grok AI Service available")
+except ImportError as e:
+    GROK_SERVICE_AVAILABLE = False
+    print(f"❌ Grok service not available: {e}")
 
 from app.services.mock_ai_service import MockAIService
 
@@ -48,13 +49,18 @@ app.add_middleware(
 # Services
 db_service = DatabaseService()
 
-# Use mock AI service by default, or real service if available and configured
-if AI_SERVICE_AVAILABLE and os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_API_KEY") != "your_openai_api_key_here":
-    ai_service = AIService()
-    print("🔑 Using real OpenAI API")
+# Initialize AI service
+if GROK_SERVICE_AVAILABLE and os.getenv("GROQ_API_KEY"):
+    try:
+        ai_service = GrokService()
+        print("🔑 Using Grok AI API")
+    except Exception as e:
+        print(f"❌ Failed to initialize Grok service: {e}")
+        ai_service = MockAIService()
+        print("🤖 Falling back to Mock AI Service")
 else:
     ai_service = MockAIService()
-    print("🤖 Using mock AI service (no API key required)")
+    print("🤖 Using Mock AI Service (no API key required)")
 
 class HealthResponse(BaseModel):
     status: str
@@ -68,12 +74,12 @@ class SaveDecisionRequest(BaseModel):
 
 @app.get("/", response_model=HealthResponse)
 async def health_check():
-    ai_type = "openai" if isinstance(ai_service, AIService) else "mock"
+    ai_type = "grok" if GROK_SERVICE_AVAILABLE and os.getenv("GROQ_API_KEY") else "mock"
     return HealthResponse(status="healthy", version="1.0.0", ai_service=ai_type)
 
 @app.post("/analyze-decision", response_model=AnalysisResult)
 async def analyze_decision(decision: DecisionInput):
-    """Analyze a decision using AI or mock service"""
+    """Analyze a decision using AI service"""
     try:
         # Validate input
         if len(decision.options) < 2:
@@ -100,14 +106,22 @@ async def analyze_decision(decision: DecisionInput):
 async def save_decision(request: SaveDecisionRequest):
     """Save decision analysis to database"""
     try:
+        # Validate user_id is a valid UUID
+        try:
+            user_uuid = uuid.UUID(request.user_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid user_id format. Must be a valid UUID.")
+        
         decision_id = await db_service.save_decision(
-            request.user_id, 
+            str(user_uuid),  # Ensure it's string representation
             request.decision_input, 
             request.analysis_result
         )
         
         return {"decision_id": decision_id, "status": "saved"}
         
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in save_decision: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to save decision: {str(e)}")
@@ -116,8 +130,16 @@ async def save_decision(request: SaveDecisionRequest):
 async def get_decisions(user_id: str):
     """Get user's saved decisions"""
     try:
-        decisions = await db_service.get_user_decisions(user_id)
+        # Validate user_id is a valid UUID
+        try:
+            user_uuid = uuid.UUID(user_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid user_id format. Must be a valid UUID.")
+        
+        decisions = await db_service.get_user_decisions(str(user_uuid))
         return decisions
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in get_decisions: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch decisions: {str(e)}")
@@ -126,7 +148,13 @@ async def get_decisions(user_id: str):
 async def get_decision(decision_id: str, user_id: str):
     """Get specific decision by ID"""
     try:
-        decision = await db_service.get_decision(decision_id, user_id)
+        # Validate user_id is a valid UUID
+        try:
+            user_uuid = uuid.UUID(user_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid user_id format. Must be a valid UUID.")
+        
+        decision = await db_service.get_decision(decision_id, str(user_uuid))
         if not decision:
             raise HTTPException(status_code=404, detail="Decision not found")
         return decision
@@ -140,7 +168,13 @@ async def get_decision(decision_id: str, user_id: str):
 async def delete_decision(decision_id: str, user_id: str):
     """Delete a decision"""
     try:
-        success = await db_service.delete_decision(decision_id, user_id)
+        # Validate user_id is a valid UUID
+        try:
+            user_uuid = uuid.UUID(user_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid user_id format. Must be a valid UUID.")
+        
+        success = await db_service.delete_decision(decision_id, str(user_uuid))
         if success:
             return {"status": "deleted", "decision_id": decision_id}
         else:
@@ -150,6 +184,12 @@ async def delete_decision(decision_id: str, user_id: str):
     except Exception as e:
         print(f"Error in delete_decision: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete decision: {str(e)}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    if hasattr(ai_service, 'close'):
+        await ai_service.close()
 
 if __name__ == "__main__":
     import uvicorn

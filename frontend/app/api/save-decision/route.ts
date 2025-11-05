@@ -1,9 +1,18 @@
+// frontend/app/api/save-decision/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const { decision, result } = await request.json()
+    const { decision, result, user_id } = await request.json()
     
+    // Validate that we have a user_id
+    if (!user_id) {
+      return NextResponse.json(
+        { error: 'User ID is required' },
+        { status: 400 }
+      )
+    }
+
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
     
     const response = await fetch(`${backendUrl}/save-decision`, {
@@ -14,12 +23,17 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         decision_input: decision,
         analysis_result: result,
-        user_id: 'demo-user' // In production, use actual user ID from auth
+        user_id: user_id // Use the actual user_id from the request
       }),
     })
 
     if (!response.ok) {
-      throw new Error(`Backend responded with status: ${response.status}`)
+      const errorText = await response.text()
+      console.error('Backend error:', errorText)
+      return NextResponse.json(
+        { error: 'Failed to save decision' },
+        { status: response.status }
+      )
     }
 
     const savedResult = await response.json()
@@ -27,7 +41,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error in save-decision API route:', error)
     return NextResponse.json(
-      { error: 'Failed to save decision' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

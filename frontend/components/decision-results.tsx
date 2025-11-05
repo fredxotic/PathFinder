@@ -10,6 +10,7 @@ import { calculateConfidence } from '@/lib/utils'
 import { PDFExport } from '@/components/pdf-export'
 import React from 'react'
 import { Decision } from '@/types'
+import { useToast } from '@/components/ui/toast'
 
 interface DecisionResultsProps {
   result: AnalysisResult
@@ -32,6 +33,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 }
 
 export function DecisionResults({ result, decision, onSave, onExport }: DecisionResultsProps) {
+  const { toast } = useToast()
   const confidence = calculateConfidence(result.scores.map(s => s.overall_score))
 
   // Safe data preparation for radar chart
@@ -71,6 +73,12 @@ export function DecisionResults({ result, decision, onSave, onExport }: Decision
 
   const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088fe']
 
+  const handleSave = () => {
+    if (onSave) {
+      onSave()
+    }
+  }
+
   // If no valid data, show simplified view
   if (!result.scores.length || radarData.length === 0) {
     return (
@@ -88,6 +96,11 @@ export function DecisionResults({ result, decision, onSave, onExport }: Decision
                   <p className="whitespace-pre-wrap">{result.reasoning}</p>
                 </div>
               )}
+            </div>
+            <div className="flex gap-2 pt-4">
+              <Button onClick={handleSave}>
+                Save Decision
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -224,7 +237,7 @@ export function DecisionResults({ result, decision, onSave, onExport }: Decision
             </div>
             
             <div className="flex gap-2 pt-4">
-              <Button onClick={onSave}>
+              <Button onClick={handleSave}>
                 Save Decision
               </Button>
               {decision && (

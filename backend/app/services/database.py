@@ -1,4 +1,6 @@
+# backend/app/services/database.py
 import os
+import uuid
 from supabase import create_client, Client
 from typing import List, Optional
 from app.models.decision import SavedDecision, DecisionInput, AnalysisResult
@@ -11,26 +13,69 @@ class DatabaseService:
     def __init__(self):
         try:
             supabase_url = os.getenv("SUPABASE_URL")
-            supabase_key = os.getenv("SUPABASE_KEY")
+            supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
             
             if not supabase_url or not supabase_key:
-                raise ValueError("Supabase URL and Key must be set in environment variables")
+                raise ValueError("Supabase URL and Service Role Key must be set in environment variables")
             
-            # Initialize with the older client syntax
             self.supabase: Client = create_client(supabase_url, supabase_key)
-            
-            # Test connection
-            result = self.supabase.table("decisions").select("id").limit(1).execute()
-            logger.info("✅ Supabase client initialized successfully")
+            logger.info("✅ Supabase client initialized successfully with service role")
             
         except Exception as e:
             logger.error(f"❌ Failed to initialize Supabase client: {e}")
             raise
     
+    async def ensure_user_exists(self, user_id: str) -> bool:
+        """Ensure user exists in the profiles table, create if not"""
+        try:
+            # Check if user exists in profiles
+            response = self.supabase.table("profiles").select("id").eq("id", user_id).execute()
+            
+            if hasattr(response, 'data') and response.data:
+                logger.info(f"✅ User {user_id} already exists in profiles")
+                return True
+            else:
+                # Create user profile
+                profile_data = {
+                    "id": user_id,
+                    "created_at": datetime.utcnow().isoformat(),
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+                
+                create_response = self.supabase.table("profiles").insert(profile_data).execute()
+                
+                if hasattr(create_response, 'data') and create_response.data:
+                    logger.info(f"✅ Created profile for user {user_id}")
+                    return True
+                else:
+                    error_msg = getattr(create_response, 'error', 'Unknown error')
+                    logger.error(f"❌ Failed to create profile for user {user_id}: {error_msg}")
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"❌ Error ensuring user exists: {e}")
+            return False
+    
     async def save_decision(self, user_id: str, decision_input: DecisionInput, analysis_result: AnalysisResult) -> str:
         """Save decision analysis to database"""
         try:
+            # First ensure the user exists
+            logger.info(f"🔍 Ensuring user {user_id} exists in profiles...")
+            user_exists = await self.ensure_user_exists(user_id)
+            
+            if not user_exists:
+                # Try one more time with detailed logging
+                logger.warning(f"🔄 Retrying user creation for {user_id}")
+                user_exists = await self.ensure_user_exists(user_id)
+                
+            if not user_exists:
+                raise Exception(f"User {user_id} does not exist and could not be created in profiles table")
+            
+            # Generate a unique decision ID
+            decision_id = str(uuid.uuid4())
+            
             decision_data = {
+                "id": decision_id,
                 "user_id": user_id,
                 "title": decision_input.title,
                 "context": decision_input.context,
@@ -43,15 +88,16 @@ class DatabaseService:
             
             logger.info(f"📝 Saving decision for user {user_id}: {decision_input.title}")
             
-            # Use the older execute() method
             response = self.supabase.table("decisions").insert(decision_data).execute()
             
             if hasattr(response, 'data') and response.data:
-                decision_id = response.data[0]["id"]
-                logger.info(f"✅ Decision saved successfully with ID: {decision_id}")
-                return decision_id
+                returned_id = response.data[0]["id"]
+                logger.info(f"✅ Decision saved successfully with ID: {returned_id}")
+                return returned_id
             else:
-                raise Exception("No data returned from insert operation")
+                error_msg = f"No data returned from insert: {getattr(response, 'error', 'Unknown error')}"
+                logger.error(f"❌ {error_msg}")
+                raise Exception(error_msg)
             
         except Exception as e:
             logger.error(f"❌ Error saving decision: {e}")
