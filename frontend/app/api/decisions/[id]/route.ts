@@ -48,3 +48,48 @@ export async function DELETE(
     )
   }
 }
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = createRouteHandlerClient({ cookies })
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please sign in to view decisions' },
+        { status: 401 }
+      )
+    }
+
+    const decisionId = params.id
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    
+    const response = await fetch(`${backendUrl}/decisions/${decisionId}?user_id=${session.user.id}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Backend error:', errorText)
+      return NextResponse.json(
+        { error: 'Failed to fetch decision' },
+        { status: response.status }
+      )
+    }
+
+    const decision = await response.json()
+    return NextResponse.json(decision)
+  } catch (error) {
+    console.error('Error in get decision API route:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
