@@ -31,10 +31,10 @@ export default function HistoryPage() {
   const fetchDecisions = async () => {
     try {
       setLoading(true)
-      const headers = await getAuthHeaders()
+      const headers = await getAuthHeaders() 
       
       const response = await fetch('/api/decisions', {
-        headers,
+        headers, // Make sure headers are passed
       })
       
       if (!response.ok) {
@@ -54,23 +54,25 @@ export default function HistoryPage() {
   const deleteDecision = async (decisionId: string) => {
     setDeletingId(decisionId)
     try {
+      // Get authentication headers
       const headers = await getAuthHeaders()
       
       const response = await fetch(`/api/decisions/${decisionId}`, {
         method: 'DELETE',
-        headers,
+        headers, // Add the auth headers here
       })
 
       if (!response.ok) {
-        throw new Error('Failed to delete decision')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete decision')
       }
 
       toast('Decision deleted successfully', 'success')
       setDecisions(decisions.filter(d => d.id !== decisionId))
       setSelectedDecision(null) // Close detail view if open
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting decision:', error)
-      toast('Failed to delete decision', 'error')
+      toast(error.message || 'Failed to delete decision', 'error')
       // Re-fetch to ensure UI is in sync
       fetchDecisions()
     } finally {

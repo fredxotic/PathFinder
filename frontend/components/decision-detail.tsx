@@ -17,10 +17,14 @@ interface DecisionDetailProps {
 export function DecisionDetail({ decision, onClose, onDelete }: DecisionDetailProps) {
   const { toast } = useToast()
 
-  const handleDelete = () => {
-    onDelete(decision.id)
-    onClose()
-    toast('Decision deleted successfully', 'success')
+  const handleDelete = async () => {
+    try {
+        onDelete(decision.id)
+        onClose()
+    } catch (error) {
+        console.error('Error deleting decision:', error)
+        toast('Failed to delete decision', 'error')
+    }
   }
 
   const formatDate = (dateString: string) => {

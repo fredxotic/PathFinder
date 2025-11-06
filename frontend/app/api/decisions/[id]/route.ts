@@ -22,6 +22,7 @@ export async function DELETE(
     const decisionId = params.id
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
     
+    // Make sure to include the user_id in the backend request
     const response = await fetch(`${backendUrl}/decisions/${decisionId}?user_id=${session.user.id}`, {
       method: 'DELETE',
       headers: {
@@ -32,6 +33,15 @@ export async function DELETE(
     if (!response.ok) {
       const errorText = await response.text()
       console.error('Backend error:', errorText)
+      
+      // If backend returns 404, it means the decision doesn't exist or doesn't belong to this user
+      if (response.status === 404) {
+        return NextResponse.json(
+          { error: 'Decision not found or you do not have permission to delete it' },
+          { status: 404 }
+        )
+      }
+      
       return NextResponse.json(
         { error: 'Failed to delete decision' },
         { status: response.status }

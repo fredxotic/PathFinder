@@ -4,11 +4,11 @@ import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { Download } from 'lucide-react'
+import { Download, Loader2 } from 'lucide-react'
 import { AnalysisResult } from '@/types'
 import { calculateConfidence } from '@/lib/utils'
 import { PDFExport } from '@/components/pdf-export'
-import React from 'react'
+import React, { useState } from 'react'
 import { Decision } from '@/types'
 import { useToast } from '@/components/ui/toast'
 
@@ -50,6 +50,7 @@ const RadarTooltip = ({ active, payload, label }: any) => {
 
 export function DecisionResults({ result, decision, onSave, onExport }: DecisionResultsProps) {
   const { toast } = useToast()
+  const [isSaving, setIsSaving] = useState(false)
   const confidence = calculateConfidence(result.scores.map(s => s.overall_score))
 
   // Safe data preparation for radar chart
@@ -98,9 +99,17 @@ export function DecisionResults({ result, decision, onSave, onExport }: Decision
   // Colors array with enough colors for up to 5 options
   const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088fe']
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (onSave) {
-      onSave()
+      setIsSaving(true) // Set loading state
+      try {
+        await onSave()
+        // The toast will be shown from the parent component
+      } catch (error) {
+        console.error('Error in handleSave:', error)
+      } finally {
+        setIsSaving(false) // Clear loading state
+      }
     }
   }
 
@@ -405,8 +414,18 @@ export function DecisionResults({ result, decision, onSave, onExport }: Decision
 
             {/* Action Buttons */}
             <div className="flex gap-2 pt-4">
-              <Button onClick={handleSave}>
-                Save Decision
+              <Button 
+                onClick={handleSave}
+                disabled={isSaving} // Disable while saving
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Decision'
+                )}
               </Button>
               {decision && (
                 <PDFExport decision={decision} result={result} />

@@ -73,8 +73,6 @@ export default function Home() {
     }
     
     try {
-      const supabase = await getSupabaseWithAuth()
-      
       const response = await fetch('/api/save-decision', {
         method: 'POST',
         headers: {
@@ -92,10 +90,12 @@ export default function Home() {
         throw new Error(errorData.error || 'Failed to save decision')
       }
 
-      toast('Decision saved successfully!', 'success')
+      const savedResult = await response.json()
+      toast('Decision saved successfully! You can view it in your History.', 'success')
+      return savedResult // Return the result so DecisionResults can know it completed
     } catch (error: any) {
       console.error('Error saving decision:', error)
-      toast(error.message || 'Failed to save decision', 'error')
+      throw error // Re-throw so DecisionResults can catch it
     }
   }
 
