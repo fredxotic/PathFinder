@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { Download, Share2 } from 'lucide-react'
+import { Download } from 'lucide-react'
 import { AnalysisResult } from '@/types'
 import { calculateConfidence } from '@/lib/utils'
 import { PDFExport } from '@/components/pdf-export'
@@ -52,7 +52,7 @@ export function DecisionResults({ result, decision, onSave, onExport }: Decision
   const { toast } = useToast()
   const confidence = calculateConfidence(result.scores.map(s => s.overall_score))
 
-  // FIXED: Safe data preparation for radar chart
+  // Safe data preparation for radar chart
   const radarData = React.useMemo(() => {
     if (!result.scores.length) {
       return []
@@ -86,7 +86,7 @@ export function DecisionResults({ result, decision, onSave, onExport }: Decision
     })
   }, [result.scores])
 
-  // FIXED: Safe data preparation for bar chart - ensure we only show actual options
+  // Safe data preparation for bar chart - ensure we only show actual options
   const barData = React.useMemo(() => {
     return result.scores.map(score => ({
       option: score.option.length > 20 ? `${score.option.substring(0, 20)}...` : score.option,
@@ -95,7 +95,7 @@ export function DecisionResults({ result, decision, onSave, onExport }: Decision
     }))
   }, [result.scores])
 
-  // FIXED: Colors array with enough colors for up to 5 options
+  // Colors array with enough colors for up to 5 options
   const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088fe']
 
   const handleSave = () => {
@@ -297,11 +297,11 @@ export function DecisionResults({ result, decision, onSave, onExport }: Decision
             )}
 
             {/* Key Insights */}
-            {(result as any).key_insights && (result as any).key_insights.length > 0 && (
+            {result.key_insights && result.key_insights.length > 0 && (
               <div>
                 <h4 className="font-semibold mb-2">💡 Key Insights</h4>
                 <ul className="space-y-2">
-                  {(result as any).key_insights.map((insight: string, index: number) => (
+                  {result.key_insights.map((insight: string, index: number) => (
                     <li key={index} className="flex items-start">
                       <span className="text-primary mr-2">•</span>
                       <span>{insight}</span>
@@ -312,11 +312,11 @@ export function DecisionResults({ result, decision, onSave, onExport }: Decision
             )}
 
             {/* Next Steps */}
-            {(result as any).next_steps && (result as any).next_steps.length > 0 && (
+            {result.next_steps && result.next_steps.length > 0 && (
               <div>
                 <h4 className="font-semibold mb-2">🚀 Next Steps</h4>
                 <ul className="space-y-2">
-                  {(result as any).next_steps.map((step: string, index: number) => (
+                  {result.next_steps.map((step: string, index: number) => (
                     <li key={index} className="flex items-start">
                       <span className="text-primary mr-2">•</span>
                       <span>{step}</span>
@@ -341,23 +341,48 @@ export function DecisionResults({ result, decision, onSave, onExport }: Decision
                     
                     {/* Strengths & Weaknesses */}
                     <div className="grid md:grid-cols-2 gap-4 text-sm">
-                      {(score as any).strengths && (score as any).strengths.length > 0 && (
+                      {score.strengths && score.strengths.length > 0 && (
                         <div>
                           <span className="font-medium text-green-600">✅ Strengths:</span>
                           <ul className="mt-1 space-y-1">
-                            {(score as any).strengths.map((strength: string, i: number) => (
+                            {score.strengths.map((strength: string, i: number) => (
                               <li key={i}>• {strength}</li>
                             ))}
                           </ul>
                         </div>
                       )}
                       
-                      {(score as any).weaknesses && (score as any).weaknesses.length > 0 && (
+                      {score.weaknesses && score.weaknesses.length > 0 && (
                         <div>
                           <span className="font-medium text-orange-600">⚠️ Weaknesses:</span>
                           <ul className="mt-1 space-y-1">
-                            {(score as any).weaknesses.map((weakness: string, i: number) => (
+                            {score.weaknesses.map((weakness: string, i: number) => (
                               <li key={i}>• {weakness}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Risks & Opportunities */}
+                    <div className="grid md:grid-cols-2 gap-4 text-sm mt-4">
+                      {score.risks && score.risks.length > 0 && (
+                        <div>
+                          <span className="font-medium text-red-600">🚨 Risks:</span>
+                          <ul className="mt-1 space-y-1">
+                            {score.risks.map((risk: string, i: number) => (
+                              <li key={i}>• {risk}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {score.opportunities && score.opportunities.length > 0 && (
+                        <div>
+                          <span className="font-medium text-blue-600">🌟 Opportunities:</span>
+                          <ul className="mt-1 space-y-1">
+                            {score.opportunities.map((opportunity: string, i: number) => (
+                              <li key={i}>• {opportunity}</li>
                             ))}
                           </ul>
                         </div>
@@ -367,6 +392,16 @@ export function DecisionResults({ result, decision, onSave, onExport }: Decision
                 ))}
               </div>
             </div>
+
+            {/* Comparative Analysis */}
+            {result.comparative_analysis && (
+              <div>
+                <h4 className="font-semibold mb-2">📊 Comparative Analysis</h4>
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="whitespace-pre-wrap">{result.comparative_analysis}</p>
+                </div>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex gap-2 pt-4">

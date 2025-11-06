@@ -1,7 +1,7 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
   "/page": "app/page.js",
+  "/profile/page": "app/profile/page.js",
   "/history/page": "app/history/page.js",
-  "/api/decisions/[id]/route": "app/api/decisions/[id]/route.js",
-  "/api/decisions/route": "app/api/decisions/route.js"
+  "/api/decisions/route": "app/api/decisions/route.js",
+  "/api/save-decision/route": "app/api/save-decision/route.js"
 }

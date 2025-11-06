@@ -20,15 +20,22 @@ export interface AnalysisResult {
   decision_id?: string;
   scores: OptionScore[];
   summary: string;
-  reasoning?: string;
+  reasoning: string;
   confidence: number;
   recommended_option: string;
+  key_insights: string[];
+  next_steps: string[];
+  comparative_analysis: string;
 }
 
 export interface OptionScore {
   option: string;
   overall_score: number;
-  priority_scores?: { [priority: string]: number };
+  priority_scores: { [priority: string]: number };
+  strengths: string[];
+  weaknesses: string[];
+  risks: string[];
+  opportunities: string[];
 }
 
 export interface SavedDecision {

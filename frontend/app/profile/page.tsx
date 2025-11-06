@@ -1,4 +1,3 @@
-// frontend/app/profile/page.tsx
 "use client"
 
 import { useState, useEffect } from 'react'
@@ -7,11 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { ArrowLeft, User, Mail, Save } from 'lucide-react'
+import { ArrowLeft, User, Mail, Save, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
 import { useToast } from '@/components/ui/toast'
-import { supabase } from '@/lib/supabase-client'
+import { getSupabaseWithAuth } from '@/lib/supabase-client'
 
 interface Profile {
   id: string
@@ -24,8 +23,9 @@ interface Profile {
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [fullName, setFullName] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [decisionsCount, setDecisionsCount] = useState(0)
   
   const { user } = useAuth()
   const { toast } = useToast()
@@ -33,11 +33,14 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user) {
       fetchProfile()
+      fetchDecisionsCount()
     }
   }, [user])
 
   const fetchProfile = async () => {
+    setLoading(true)
     try {
+      const supabase = await getSupabaseWithAuth()
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -49,7 +52,27 @@ export default function ProfilePage() {
       setProfile(data)
       setFullName(data.full_name || '')
     } catch (error: any) {
+      console.error('Error fetching profile:', error)
       toast('Failed to load profile', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchDecisionsCount = async () => {
+    try {
+      const supabase = await getSupabaseWithAuth()
+      const { count, error } = await supabase
+        .from('decisions')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user?.id)
+
+      if (error) throw error
+      
+      setDecisionsCount(count || 0)
+    } catch (error: any) {
+      console.error('Error fetching decisions count:', error)
+      // Don't show toast for this, just leave count as 0
     }
   }
 
@@ -58,6 +81,7 @@ export default function ProfilePage() {
     
     setSaving(true)
     try {
+      const supabase = await getSupabaseWithAuth()
       const { error } = await supabase
         .from('profiles')
         .update({ 
@@ -68,12 +92,27 @@ export default function ProfilePage() {
 
       if (error) throw error
       
+      // Update local profile state
+      setProfile(prev => prev ? { ...prev, full_name: fullName } : null)
+      
       toast('Profile updated successfully!', 'success')
     } catch (error: any) {
-      toast('Failed to update profile', 'error')
+      console.error('Error updating profile:', error)
+      toast(error.message || 'Failed to update profile', 'error')
     } finally {
       setSaving(false)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-emerald-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p>Loading profile...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!user) {
@@ -162,6 +201,7 @@ export default function ProfilePage() {
                   placeholder="Enter your full name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
+                  disabled={saving}
                 />
                 <p className="text-xs text-muted-foreground">
                   This name will be used in your decision history
@@ -172,7 +212,7 @@ export default function ProfilePage() {
                 <label className="text-sm font-medium">Account Created</label>
                 <Input
                   type="text"
-                  value={profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'Loading...'}
+                  value={profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'N/A'}
                   disabled
                   className="opacity-70"
                 />
@@ -180,11 +220,20 @@ export default function ProfilePage() {
 
               <Button 
                 onClick={updateProfile}
-                disabled={saving || fullName === profile?.full_name}
+                disabled={saving || fullName === profile?.full_name || !fullName.trim()}
                 className="w-full sm:w-auto"
               >
-                <Save className="w-4 h-4 mr-2" />
-                {saving ? 'Saving...' : 'Save Changes'}
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>
@@ -199,11 +248,11 @@ export default function ProfilePage() {
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="text-center p-4 border rounded-lg">
-                  <div className="text-2xl font-bold text-primary">0</div>
+                  <div className="text-2xl font-bold text-primary">{decisionsCount}</div>
                   <div className="text-sm text-muted-foreground">Decisions Made</div>
                 </div>
                 <div className="text-center p-4 border rounded-lg">
-                  <div className="text-2xl font-bold text-primary">0</div>
+                  <div className="text-2xl font-bold text-primary">{decisionsCount}</div>
                   <div className="text-sm text-muted-foreground">Saved Analyses</div>
                 </div>
               </div>

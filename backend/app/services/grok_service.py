@@ -4,7 +4,7 @@ import asyncio
 import httpx
 from typing import List, Dict, Any
 from dotenv import load_dotenv
-from app.models.decision import DecisionInput, Priority
+from app.models.decision import DecisionInput, Priority, AnalysisResult, OptionScore
 import logging
 
 # Load environment variables
@@ -32,8 +32,8 @@ class GrokService:
         
         logger.info(f"🤖 Groq AI Service initialized with available models: {self.available_models}")
     
-    async def analyze_decision(self, decision: DecisionInput) -> Dict[str, Any]:
-        """Analyze decision using Groq API with detailed structured reasoning"""
+    async def analyze_decision(self, decision: DecisionInput) -> AnalysisResult:
+        """Analyze decision using Groq API with detailed structured reasoning and return AnalysisResult"""
         
         system_prompt = """You are an expert decision analysis assistant with deep expertise in strategic thinking, risk assessment, and personal development. Your role is to provide comprehensive, nuanced analysis that helps users make informed decisions.
 
@@ -114,8 +114,8 @@ Return ONLY valid JSON:"""
                     return await self._fallback_to_mock(decision)
                 continue
     
-    async def _make_api_call(self, model: str, system_prompt: str, user_prompt: str, decision: DecisionInput) -> Dict[str, Any]:
-        """Make API call with specific model"""
+    async def _make_api_call(self, model: str, system_prompt: str, user_prompt: str, decision: DecisionInput) -> AnalysisResult:
+        """Make API call with specific model and return AnalysisResult"""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -157,57 +157,55 @@ Return ONLY valid JSON:"""
         cleaned_content = cleaned_content.strip()
             
         logger.debug(f"📥 Received response: {cleaned_content[:200]}...")
-        analysis = json.loads(cleaned_content)
+        analysis_dict = json.loads(cleaned_content)
         
         # Validate and enhance the response structure
-        analysis = self._validate_and_enhance_response(analysis, decision)
+        analysis_dict = self._validate_and_enhance_response(analysis_dict, decision)
         
-        # Calculate confidence based on score differentiation and analysis depth
-        scores = [opt["overall_score"] for opt in analysis["scores"]]
-        confidence = self._calculate_confidence(scores, analysis)
-        analysis["confidence"] = confidence
+        # Convert to AnalysisResult object
+        analysis_result = self._convert_to_analysis_result(analysis_dict, decision)
         
-        logger.info(f"📊 Analysis completed - Confidence: {confidence}%, Recommended: {analysis['recommended_option']}")
-        return analysis
+        logger.info(f"📊 Analysis completed - Confidence: {analysis_result.confidence}%, Recommended: {analysis_result.recommended_option}")
+        return analysis_result
     
-    def _validate_and_enhance_response(self, analysis: Dict[str, Any], decision: DecisionInput) -> Dict[str, Any]:
+    def _validate_and_enhance_response(self, analysis_dict: Dict[str, Any], decision: DecisionInput) -> Dict[str, Any]:
         """Validate and enhance the AI response structure"""
         
         # Ensure all required top-level keys exist
         required_keys = ["scores", "summary", "reasoning", "recommended_option"]
         for key in required_keys:
-            if key not in analysis:
+            if key not in analysis_dict:
                 if key == "scores":
-                    analysis[key] = []
+                    analysis_dict[key] = []
                 elif key == "summary":
-                    analysis[key] = f"Analysis of '{decision.title}' based on your priorities."
+                    analysis_dict[key] = f"Analysis of '{decision.title}' based on your priorities."
                 elif key == "reasoning":
-                    analysis[key] = "The options were evaluated against your stated priorities with consideration of strategic implications."
+                    analysis_dict[key] = "The options were evaluated against your stated priorities with consideration of strategic implications."
                 elif key == "recommended_option":
-                    analysis[key] = decision.options[0] if decision.options else "No option"
+                    analysis_dict[key] = decision.options[0] if decision.options else "No option"
         
         # Enhanced keys for better analysis
         enhanced_keys = ["key_insights", "next_steps", "comparative_analysis"]
         for key in enhanced_keys:
-            if key not in analysis:
+            if key not in analysis_dict:
                 if key == "key_insights":
-                    analysis[key] = ["Consider both short-term and long-term implications of your decision."]
+                    analysis_dict[key] = ["Consider both short-term and long-term implications of your decision."]
                 elif key == "next_steps":
-                    analysis[key] = ["Review the analysis with trusted advisors before finalizing your decision."]
+                    analysis_dict[key] = ["Review the analysis with trusted advisors before finalizing your decision."]
                 elif key == "comparative_analysis":
-                    analysis[key] = "Further comparison needed between the top options."
+                    analysis_dict[key] = "Further comparison needed between the top options."
         
         # Ensure scores is a list and has enhanced structure
-        if not isinstance(analysis["scores"], list):
-            analysis["scores"] = []
+        if not isinstance(analysis_dict["scores"], list):
+            analysis_dict["scores"] = []
         
         # Check if all options are covered and enhance each score
-        response_options = {score.get("option", f"Option_{i}") for i, score in enumerate(analysis["scores"])}
+        response_options = {score.get("option", f"Option_{i}") for i, score in enumerate(analysis_dict["scores"])}
         decision_options = set(decision.options)
         
         # Add missing options with enhanced default structure
         for option in decision_options - response_options:
-            analysis["scores"].append({
+            analysis_dict["scores"].append({
                 "option": option,
                 "overall_score": 50,
                 "priority_scores": {p.name: 50 for p in decision.priorities},
@@ -218,7 +216,7 @@ Return ONLY valid JSON:"""
             })
         
         # Enhance each score with additional analysis dimensions
-        for score in analysis["scores"]:
+        for score in analysis_dict["scores"]:
             # Ensure required fields
             if "overall_score" not in score:
                 score["overall_score"] = 50
@@ -239,22 +237,59 @@ Return ONLY valid JSON:"""
                         score[dimension] = ["Potential for positive outcomes"]
         
         # Ensure recommended_option is valid
-        if (analysis["recommended_option"] not in decision_options and 
-            analysis["scores"]):
+        if (analysis_dict["recommended_option"] not in decision_options and 
+            analysis_dict["scores"]):
             # Pick the option with highest overall score
-            best_option = max(analysis["scores"], key=lambda x: x["overall_score"])
-            analysis["recommended_option"] = best_option["option"]
+            best_option = max(analysis_dict["scores"], key=lambda x: x["overall_score"])
+            analysis_dict["recommended_option"] = best_option["option"]
         
         # Enhance summary if too generic
-        if len(analysis["summary"].split()) < 15:  # If summary is too brief
-            top_option = next((s for s in analysis["scores"] if s["option"] == analysis["recommended_option"]), None)
+        if len(analysis_dict["summary"].split()) < 15:  # If summary is too brief
+            top_option = next((s for s in analysis_dict["scores"] if s["option"] == analysis_dict["recommended_option"]), None)
             if top_option:
-                analysis["summary"] = (f"{analysis['recommended_option']} is recommended with a score of {top_option['overall_score']}/100, "
+                analysis_dict["summary"] = (f"{analysis_dict['recommended_option']} is recommended with a score of {top_option['overall_score']}/100, "
                                      f"demonstrating strong alignment with your key priorities including {list(decision.priorities[0].name) if decision.priorities else 'your criteria'}.")
         
-        return analysis
+        return analysis_dict
     
-    def _calculate_confidence(self, scores: List[float], analysis: Dict[str, Any]) -> float:
+    def _convert_to_analysis_result(self, analysis_dict: Dict[str, Any], decision: DecisionInput) -> AnalysisResult:
+        """Convert validated response dictionary to AnalysisResult object"""
+        
+        # Calculate confidence based on score differentiation and analysis depth
+        scores = [opt["overall_score"] for opt in analysis_dict["scores"]]
+        confidence = self._calculate_confidence(scores, analysis_dict)
+        
+        # Create OptionScore objects
+        option_scores = []
+        for score_data in analysis_dict["scores"]:
+            option_scores.append(OptionScore(
+                option=score_data["option"],
+                overall_score=score_data["overall_score"],
+                priority_scores=score_data["priority_scores"],
+                strengths=score_data["strengths"],
+                weaknesses=score_data["weaknesses"],
+                risks=score_data["risks"],
+                opportunities=score_data["opportunities"]
+            ))
+        
+        # Create AnalysisResult object - make sure this is correct
+        analysis_result = AnalysisResult(
+            decision_id=None,  # Will be set when saved to database
+            scores=option_scores,
+            summary=analysis_dict["summary"],
+            reasoning=analysis_dict["reasoning"],
+            confidence=confidence,
+            recommended_option=analysis_dict["recommended_option"],
+            key_insights=analysis_dict.get("key_insights", []),
+            next_steps=analysis_dict.get("next_steps", []),
+            comparative_analysis=analysis_dict.get("comparative_analysis", "")
+        )
+        
+        # Debug: Print the created object to verify
+        print(f"✅ Created AnalysisResult: {analysis_result}")
+        return analysis_result
+    
+    def _calculate_confidence(self, scores: List[float], analysis_dict: Dict[str, Any]) -> float:
         """Calculate confidence level based on score differentiation and analysis quality"""
         if len(scores) < 2:
             return 60.0
@@ -268,23 +303,30 @@ Return ONLY valid JSON:"""
         
         # Boost confidence for detailed analysis
         analysis_quality_boost = 0
-        reasoning_words = len(analysis.get("reasoning", "").split())
+        reasoning_words = len(analysis_dict.get("reasoning", "").split())
         if reasoning_words > 100:
             analysis_quality_boost += 10
-        if len(analysis.get("key_insights", [])) >= 2:
+        if len(analysis_dict.get("key_insights", [])) >= 2:
             analysis_quality_boost += 5
-        if analysis.get("comparative_analysis") and len(analysis["comparative_analysis"].split()) > 50:
+        if analysis_dict.get("comparative_analysis") and len(analysis_dict["comparative_analysis"].split()) > 50:
             analysis_quality_boost += 5
         
         confidence = min(base_confidence + analysis_quality_boost, 95)
         return round(confidence, 1)
     
-    async def _fallback_to_mock(self, decision: DecisionInput) -> Dict[str, Any]:
+    async def _fallback_to_mock(self, decision: DecisionInput) -> AnalysisResult:
         """Fallback to enhanced mock service if Groq API fails"""
         logger.info("🔄 Falling back to enhanced mock AI service")
-        from app.services.enhanced_mock_ai_service import EnhancedMockAIService
-        mock_service = EnhancedMockAIService()
-        return await mock_service.analyze_decision(decision)
+        try:
+            # Try enhanced mock first
+            from app.services.enhanced_mock_ai_service import EnhancedMockAIService
+            mock_service = EnhancedMockAIService()
+            return await mock_service.analyze_decision(decision)
+        except ImportError:
+            # Fallback to basic mock
+            from app.services.mock_ai_service import MockAIService
+            mock_service = MockAIService()
+            return await mock_service.analyze_decision(decision)
     
     async def close(self):
         """Close the HTTP client"""

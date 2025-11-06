@@ -1,16 +1,16 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { User } from '@supabase/supabase-js'
+import { User, AuthError } from '@supabase/supabase-js'
 import { supabase, getCurrentUser } from '@/lib/supabase-client'
 
 interface AuthContextType {
   user: User | null
   loading: boolean
-  signUp: (email: string, password: string) => Promise<{ error: any }>
-  signIn: (email: string, password: string) => Promise<{ error: any }>
-  signInWithGoogle: () => Promise<{ error: any }>
-  signOut: () => Promise<{ error: any }>
+  signUp: (email: string, password: string) => Promise<{ error: string | null; data: any }>
+  signIn: (email: string, password: string) => Promise<{ error: string | null; data: any }>
+  signInWithGoogle: () => Promise<{ error: string | null; data: any }>
+  signOut: () => Promise<{ error: string | null }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -21,10 +21,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Get initial session
-    getCurrentUser().then((user) => {
-      setUser(user)
-      setLoading(false)
-    })
+    const initializeAuth = async () => {
+      try {
+        const user = await getCurrentUser()
+        setUser(user)
+      } catch (error) {
+        console.error('Error initializing auth:', error)
+        setUser(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    initializeAuth()
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -37,30 +46,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  const value = {
-    user,
-    loading,
-    signUp: async (email: string, password: string) => {
-      const { error } = await supabase.auth.signUp({ email, password })
-      return { error }
-    },
-    signIn: async (email: string, password: string) => {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      return { error }
-    },
-    signInWithGoogle: async () => {
-      const { error } = await supabase.auth.signInWithOAuth({
+  const signUp = async (email: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password 
+      })
+      
+      return { 
+        error: error ? error.message : null,
+        data 
+      }
+    } catch (error: any) {
+      return { 
+        error: error.message || 'An unexpected error occurred during sign up',
+        data: null 
+      }
+    }
+  }
+
+  const signIn = async (email: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      })
+      
+      return { 
+        error: error ? error.message : null,
+        data 
+      }
+    } catch (error: any) {
+      return { 
+        error: error.message || 'An unexpected error occurred during sign in',
+        data: null 
+      }
+    }
+  }
+
+  const signInWithGoogle = async () => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
         },
       })
-      return { error }
-    },
-    signOut: async () => {
+
+      return { 
+        error: error ? error.message : null,
+        data 
+      }
+    } catch (error: any) {
+      return { 
+        error: error.message || 'An unexpected error occurred during Google sign in',
+        data: null 
+      }
+    }
+  }
+
+  const signOut = async () => {
+    try {
       const { error } = await supabase.auth.signOut()
-      return { error }
-    },
+      return { 
+        error: error ? error.message : null
+      }
+    } catch (error: any) {
+      return { 
+        error: error.message || 'An unexpected error occurred during sign out'
+      }
+    }
+  }
+
+  const value: AuthContextType = {
+    user,
+    loading,
+    signUp,
+    signIn,
+    signInWithGoogle,
+    signOut,
   }
 
   return (

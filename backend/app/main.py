@@ -88,13 +88,11 @@ async def analyze_decision(decision: DecisionInput):
         if len(decision.options) > 5:
             raise HTTPException(status_code=400, detail="Maximum 5 options allowed")
         
-        # Perform AI analysis
-        analysis_data = await ai_service.analyze_decision(decision)
+        # Perform AI analysis - this already returns an AnalysisResult object
+        analysis_result = await ai_service.analyze_decision(decision)
         
-        # Convert to response model
-        result = AnalysisResult(**analysis_data)
-        
-        return result
+        # Return the AnalysisResult object directly (no need to unpack)
+        return analysis_result
         
     except HTTPException:
         raise

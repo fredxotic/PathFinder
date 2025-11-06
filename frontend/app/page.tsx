@@ -1,4 +1,3 @@
-// frontend/app/page.tsx
 "use client"
 
 import { useState } from 'react'
@@ -13,7 +12,8 @@ import { useAuth } from '@/contexts/auth-context'
 import { AuthForms } from '@/components/auth-forms'
 import { AnalysisResult, Decision } from '@/types'
 import { useToast } from '@/components/ui/toast'
-import { getAuthHeaders } from '@/lib/auth-headers'
+import { getSupabaseWithAuth } from '@/lib/supabase-client'
+import { validateDecisionInput } from '@/lib/utils'
 
 export default function Home() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
@@ -24,37 +24,57 @@ export default function Home() {
   const { toast } = useToast()
 
   const handleAnalyzeDecision = async (decisionData: Decision) => {
-    if (!user) return
+    if (!user) {
+      toast('Please sign in to analyze decisions', 'error')
+      return
+    }
+
+    // Validate input before sending
+    const validationErrors = validateDecisionInput(decisionData)
+    if (validationErrors.length > 0) {
+      toast(`Please fix the following errors: ${validationErrors.join(', ')}`, 'error')
+      return
+    }
     
     setIsLoading(true)
     setCurrentDecision(decisionData)
+    
     try {
-      const headers = await getAuthHeaders()
+      const supabase = await getSupabaseWithAuth()
       
       const response = await fetch('/api/analyze-decision', {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(decisionData),
       })
 
       if (!response.ok) {
-        throw new Error('Analysis failed')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Analysis failed')
       }
 
       const result = await response.json()
       setAnalysisResult(result)
-    } catch (error) {
+      toast('Analysis completed successfully!', 'success')
+    } catch (error: any) {
       console.error('Error analyzing decision:', error)
-      toast('Analysis failed. Please try again.', 'error')
+      toast(error.message || 'Analysis failed. Please try again.', 'error')
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleSaveDecision = async () => {
-    if (!analysisResult || !currentDecision || !user) return
+    if (!analysisResult || !currentDecision || !user) {
+      toast('No decision to save', 'error')
+      return
+    }
     
     try {
+      const supabase = await getSupabaseWithAuth()
+      
       const response = await fetch('/api/save-decision', {
         method: 'POST',
         headers: {
@@ -63,31 +83,38 @@ export default function Home() {
         body: JSON.stringify({
           decision: currentDecision,
           result: analysisResult,
-          user_id: user.id // Make sure this is included
+          user_id: user.id
         }),
       })
 
       if (!response.ok) {
-        throw new Error('Failed to save decision')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save decision')
       }
 
       toast('Decision saved successfully!', 'success')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving decision:', error)
-      toast('Failed to save decision', 'error')
+      toast(error.message || 'Failed to save decision', 'error')
     }
   }
 
   const handleExportPDF = () => {
     // Implement PDF export using jsPDF
     console.log('Exporting PDF...')
+    toast('PDF export feature coming soon!', 'info')
   }
 
   const handleSignOut = async () => {
     try {
-      await signOut()
-    } catch (error) {
+      const { error } = await signOut()
+      if (error) {
+        throw new Error(error)
+      }
+      toast('Signed out successfully', 'success')
+    } catch (error: any) {
       console.error('Error signing out:', error)
+      toast(error.message || 'Error signing out', 'error')
     }
   }
 
@@ -129,8 +156,6 @@ export default function Home() {
               </h1>
             </motion.div>
             
-            {/* Mobile menu button could go here in the future */}
-            
             <div className="flex items-center flex-wrap justify-center gap-1 sm:gap-2">
               <Link href="/history">
                 <Button variant="outline" size="sm" className="h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm">
@@ -144,7 +169,12 @@ export default function Home() {
                   Profile
                 </Button>
               </Link>
-              <Button variant="outline" size="sm" onClick={handleSignOut} className="h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleSignOut} 
+                className="h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm"
+              >
                 <LogOut className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 Sign Out
               </Button>
