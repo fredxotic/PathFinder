@@ -1,4 +1,3 @@
-# backend/app/services/grok_service.py
 import os
 import json
 import asyncio
@@ -24,19 +23,19 @@ class GrokService:
         self.base_url = "https://api.groq.com/openai/v1/chat/completions"
         self.client = httpx.AsyncClient(timeout=60.0)
         
-        # Current available Groq models
+        # Current available Groq models - prioritize the most capable ones
         self.available_models = [
-            "llama-3.1-8b-instant",
-            "llama-3.3-70b-versatile", 
+            "llama-3.3-70b-versatile",  # Most capable model first
             "mixtral-8x7b-32768",
+            "llama-3.1-8b-instant",
         ]
         
         logger.info(f"🤖 Groq AI Service initialized with available models: {self.available_models}")
     
     async def analyze_decision(self, decision: DecisionInput) -> Dict[str, Any]:
-        """Analyze decision using Groq API with structured reasoning"""
+        """Analyze decision using Groq API with detailed structured reasoning"""
         
-        system_prompt = """You are an expert decision analysis assistant. Analyze the following decision and return ONLY valid JSON.
+        system_prompt = """You are an expert decision analysis assistant with deep expertise in strategic thinking, risk assessment, and personal development. Your role is to provide comprehensive, nuanced analysis that helps users make informed decisions.
 
 CRITICAL: You MUST return valid JSON with this exact structure:
 {
@@ -47,29 +46,59 @@ CRITICAL: You MUST return valid JSON with this exact structure:
             "priority_scores": {
                 "Priority1": 90,
                 "Priority2": 75
-            }
+            },
+            "strengths": ["Key strength 1", "Key strength 2"],
+            "weaknesses": ["Potential drawback 1", "Potential drawback 2"],
+            "risks": ["Risk factor 1", "Risk factor 2"],
+            "opportunities": ["Opportunity 1", "Opportunity 2"]
         }
     ],
-    "summary": "Brief analysis summary",
-    "reasoning": "Detailed reasoning behind scores",
-    "recommended_option": "Option Name"
+    "summary": "Comprehensive executive summary of the analysis",
+    "reasoning": "Detailed, nuanced reasoning behind scores and recommendations",
+    "recommended_option": "Option Name",
+    "key_insights": [
+        "Important insight 1",
+        "Important insight 2"
+    ],
+    "next_steps": [
+        "Recommended action 1",
+        "Recommended action 2"
+    ],
+    "comparative_analysis": "Detailed comparison of top options"
 }
 
-Do not include any other text, explanations, or markdown. Only the JSON object."""
+Provide genuinely helpful, specific analysis - not generic platitudes. Focus on concrete factors, trade-offs, and strategic implications."""
         
         user_prompt = f"""
-Please analyze this decision and return ONLY the JSON response:
+Please provide a comprehensive analysis of this decision scenario:
 
-TITLE: {decision.title}
-CONTEXT: {decision.context}
+**DECISION TITLE:** {decision.title}
 
-OPTIONS:
-{chr(10).join(f"- {opt}" for opt in decision.options)}
+**CONTEXT & BACKGROUND:**
+{decision.context}
 
-PRIORITIES:
-{chr(10).join(f"- {p.name} (Weight: {p.weight}): {p.description}" for p in decision.priorities)}
+**AVAILABLE OPTIONS:**
+{chr(10).join(f"{i+1}. {opt}" for i, opt in enumerate(decision.options))}
 
-Return valid JSON only:"""
+**KEY PRIORITIES & WEIGHTS:**
+{chr(10).join(f"- {p.name} (Weight: {p.weight}/10): {p.description}" for p in decision.priorities)}
+
+**ANALYSIS REQUEST:**
+For each option, provide:
+1. Overall score (0-100) based on weighted priorities
+2. Individual priority scores with specific justifications
+3. Key strengths and competitive advantages
+4. Potential weaknesses and limitations
+5. Identified risks and mitigation considerations
+6. Hidden opportunities and upside potential
+
+For the overall analysis, include:
+- Detailed comparative analysis between top options
+- Strategic implications of each choice
+- Key insights that might not be immediately obvious
+- Concrete next steps for the recommended option
+
+Return ONLY valid JSON:"""
         
         # Try each available model until one works
         for attempt, model in enumerate(self.available_models):
@@ -81,7 +110,7 @@ Return valid JSON only:"""
             except Exception as e:
                 logger.warning(f"❌ Model {model} failed: {str(e)}")
                 if attempt == len(self.available_models) - 1:
-                    logger.error("❌ All Groq models failed, falling back to mock service")
+                    logger.error("❌ All Groq models failed, falling back to enhanced mock service")
                     return await self._fallback_to_mock(decision)
                 continue
     
@@ -98,8 +127,8 @@ Return valid JSON only:"""
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            "temperature": 0.1,  # Lower temperature for more consistent JSON
-            "max_tokens": 2000,
+            "temperature": 0.3,  # Slightly higher for more creative insights
+            "max_tokens": 4000,  # Increased for more detailed analysis
             "response_format": {"type": "json_object"}
         }
         
@@ -130,81 +159,131 @@ Return valid JSON only:"""
         logger.debug(f"📥 Received response: {cleaned_content[:200]}...")
         analysis = json.loads(cleaned_content)
         
-        # Validate and fix the response structure
-        analysis = self._validate_and_fix_response(analysis, decision)
+        # Validate and enhance the response structure
+        analysis = self._validate_and_enhance_response(analysis, decision)
         
-        # Calculate confidence based on score differentiation
+        # Calculate confidence based on score differentiation and analysis depth
         scores = [opt["overall_score"] for opt in analysis["scores"]]
-        confidence = self._calculate_confidence(scores)
+        confidence = self._calculate_confidence(scores, analysis)
         analysis["confidence"] = confidence
         
         logger.info(f"📊 Analysis completed - Confidence: {confidence}%, Recommended: {analysis['recommended_option']}")
         return analysis
     
-    def _validate_and_fix_response(self, analysis: Dict[str, Any], decision: DecisionInput) -> Dict[str, Any]:
-        """Validate and fix the AI response structure"""
-        # Ensure all required keys exist
-        if "scores" not in analysis:
-            analysis["scores"] = []
+    def _validate_and_enhance_response(self, analysis: Dict[str, Any], decision: DecisionInput) -> Dict[str, Any]:
+        """Validate and enhance the AI response structure"""
         
-        if "summary" not in analysis:
-            analysis["summary"] = "Analysis completed based on your priorities."
+        # Ensure all required top-level keys exist
+        required_keys = ["scores", "summary", "reasoning", "recommended_option"]
+        for key in required_keys:
+            if key not in analysis:
+                if key == "scores":
+                    analysis[key] = []
+                elif key == "summary":
+                    analysis[key] = f"Analysis of '{decision.title}' based on your priorities."
+                elif key == "reasoning":
+                    analysis[key] = "The options were evaluated against your stated priorities with consideration of strategic implications."
+                elif key == "recommended_option":
+                    analysis[key] = decision.options[0] if decision.options else "No option"
         
-        if "reasoning" not in analysis:
-            analysis["reasoning"] = "The options were evaluated against your stated priorities."
+        # Enhanced keys for better analysis
+        enhanced_keys = ["key_insights", "next_steps", "comparative_analysis"]
+        for key in enhanced_keys:
+            if key not in analysis:
+                if key == "key_insights":
+                    analysis[key] = ["Consider both short-term and long-term implications of your decision."]
+                elif key == "next_steps":
+                    analysis[key] = ["Review the analysis with trusted advisors before finalizing your decision."]
+                elif key == "comparative_analysis":
+                    analysis[key] = "Further comparison needed between the top options."
         
-        # Ensure scores is a list
+        # Ensure scores is a list and has enhanced structure
         if not isinstance(analysis["scores"], list):
             analysis["scores"] = []
         
-        # Check if all options are covered
+        # Check if all options are covered and enhance each score
         response_options = {score.get("option", f"Option_{i}") for i, score in enumerate(analysis["scores"])}
         decision_options = set(decision.options)
         
-        # Add missing options with default scores
+        # Add missing options with enhanced default structure
         for option in decision_options - response_options:
             analysis["scores"].append({
                 "option": option,
                 "overall_score": 50,
-                "priority_scores": {p.name: 50 for p in decision.priorities}
+                "priority_scores": {p.name: 50 for p in decision.priorities},
+                "strengths": ["Needs further evaluation"],
+                "weaknesses": ["Limited information available"],
+                "risks": ["Unknown factors present"],
+                "opportunities": ["Potential for positive outcomes"]
             })
         
-        # Ensure each score has required fields
+        # Enhance each score with additional analysis dimensions
         for score in analysis["scores"]:
+            # Ensure required fields
             if "overall_score" not in score:
                 score["overall_score"] = 50
             if "priority_scores" not in score:
                 score["priority_scores"] = {p.name: 50 for p in decision.priorities}
+            
+            # Add enhanced analysis dimensions if missing
+            enhanced_dimensions = ["strengths", "weaknesses", "risks", "opportunities"]
+            for dimension in enhanced_dimensions:
+                if dimension not in score or not score[dimension]:
+                    if dimension == "strengths":
+                        score[dimension] = ["Aligns with some priorities"]
+                    elif dimension == "weaknesses":
+                        score[dimension] = ["May involve trade-offs"]
+                    elif dimension == "risks":
+                        score[dimension] = ["Standard implementation risks"]
+                    elif dimension == "opportunities":
+                        score[dimension] = ["Potential for positive outcomes"]
         
-        # Set recommended_option if missing
-        if "recommended_option" not in analysis or not analysis["recommended_option"]:
-            if analysis["scores"]:
-                # Pick the option with highest overall score
-                best_option = max(analysis["scores"], key=lambda x: x["overall_score"])
-                analysis["recommended_option"] = best_option["option"]
-            else:
-                analysis["recommended_option"] = decision.options[0] if decision.options else "No option"
+        # Ensure recommended_option is valid
+        if (analysis["recommended_option"] not in decision_options and 
+            analysis["scores"]):
+            # Pick the option with highest overall score
+            best_option = max(analysis["scores"], key=lambda x: x["overall_score"])
+            analysis["recommended_option"] = best_option["option"]
+        
+        # Enhance summary if too generic
+        if len(analysis["summary"].split()) < 15:  # If summary is too brief
+            top_option = next((s for s in analysis["scores"] if s["option"] == analysis["recommended_option"]), None)
+            if top_option:
+                analysis["summary"] = (f"{analysis['recommended_option']} is recommended with a score of {top_option['overall_score']}/100, "
+                                     f"demonstrating strong alignment with your key priorities including {list(decision.priorities[0].name) if decision.priorities else 'your criteria'}.")
         
         return analysis
     
-    def _calculate_confidence(self, scores: List[float]) -> float:
-        """Calculate confidence level based on score differentiation"""
+    def _calculate_confidence(self, scores: List[float], analysis: Dict[str, Any]) -> float:
+        """Calculate confidence level based on score differentiation and analysis quality"""
         if len(scores) < 2:
-            return 50.0
+            return 60.0
         
         max_score = max(scores)
         min_score = min(scores)
         score_range = max_score - min_score
         
-        # More differentiation = higher confidence
-        confidence = min(30 + (score_range / 100) * 70, 95)
+        # Base confidence from score differentiation
+        base_confidence = 40 + (score_range / 100) * 40
+        
+        # Boost confidence for detailed analysis
+        analysis_quality_boost = 0
+        reasoning_words = len(analysis.get("reasoning", "").split())
+        if reasoning_words > 100:
+            analysis_quality_boost += 10
+        if len(analysis.get("key_insights", [])) >= 2:
+            analysis_quality_boost += 5
+        if analysis.get("comparative_analysis") and len(analysis["comparative_analysis"].split()) > 50:
+            analysis_quality_boost += 5
+        
+        confidence = min(base_confidence + analysis_quality_boost, 95)
         return round(confidence, 1)
     
     async def _fallback_to_mock(self, decision: DecisionInput) -> Dict[str, Any]:
-        """Fallback to mock service if Groq API fails"""
-        logger.info("🔄 Falling back to mock AI service")
-        from app.services.mock_ai_service import MockAIService
-        mock_service = MockAIService()
+        """Fallback to enhanced mock service if Groq API fails"""
+        logger.info("🔄 Falling back to enhanced mock AI service")
+        from app.services.enhanced_mock_ai_service import EnhancedMockAIService
+        mock_service = EnhancedMockAIService()
         return await mock_service.analyze_decision(decision)
     
     async def close(self):

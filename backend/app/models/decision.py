@@ -17,6 +17,10 @@ class OptionScore(BaseModel):
     option: str
     overall_score: float
     priority_scores: Dict[str, float]
+    strengths: List[str] = Field(default_factory=list)
+    weaknesses: List[str] = Field(default_factory=list)
+    risks: List[str] = Field(default_factory=list)
+    opportunities: List[str] = Field(default_factory=list)
 
 class AnalysisResult(BaseModel):
     decision_id: Optional[str] = None
@@ -25,6 +29,9 @@ class AnalysisResult(BaseModel):
     reasoning: str
     confidence: float
     recommended_option: str
+    key_insights: List[str] = Field(default_factory=list)
+    next_steps: List[str] = Field(default_factory=list)
+    comparative_analysis: str = ""
 
 class SavedDecision(BaseModel):
     id: str

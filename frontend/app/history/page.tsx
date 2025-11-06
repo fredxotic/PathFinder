@@ -107,23 +107,25 @@ export default function HistoryPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-emerald-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Header */}
       <header className="border-b bg-background/80 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <Link href="/">
-              <Button variant="outline" size="icon">
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            </Link>
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">P</span>
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <Link href="/">
+                <Button variant="outline" size="sm" className="h-8 w-8 sm:h-9 sm:w-9">
+                  <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4" />
+                </Button>
+              </Link>
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-lg flex items-center justify-center">
+                  <span className="text-primary-foreground font-bold text-xs sm:text-sm">P</span>
+                </div>
+                <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary to-cyan-600 bg-clip-text text-transparent">
+                  PathFinder
+                </h1>
               </div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-cyan-600 bg-clip-text text-transparent">
-                PathFinder
-              </h1>
             </div>
+            <ThemeToggle />
           </div>
-          <ThemeToggle />
         </div>
       </header>
 
