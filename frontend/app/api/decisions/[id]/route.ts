@@ -1,7 +1,10 @@
 // frontend/app/api/decisions/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 
-// DELETE is used for secure deletion of a single decision.
+// Force dynamic rendering since we rely on request.headers (Authorization header)
+export const dynamic = 'force-dynamic'
+
+// ... (rest of the code remains the same as the final successful local version)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -9,7 +12,6 @@ export async function DELETE(
   try {
     const decisionId = params.id
     
-    // Get the Authorization header directly from the incoming client request.
     const authHeader = request.headers.get('Authorization')
     
     if (!authHeader) {
@@ -21,12 +23,11 @@ export async function DELETE(
     
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
-    // Pass the original client JWT directly to the FastAPI backend.
     const response = await fetch(`${backendUrl}/decisions/${decisionId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': authHeader, // FORWARD THE CLIENT'S JWT
+        'Authorization': authHeader,
       },
     })
 
@@ -52,7 +53,6 @@ export async function DELETE(
     return NextResponse.json(result)
   } catch (error: any) {
     console.error('Error in delete decision API route:', error)
-    // If we reach here, it's a true internal server error.
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -60,8 +60,6 @@ export async function DELETE(
   }
 }
 
-
-// GET is used for fetching a single decision.
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -69,7 +67,6 @@ export async function GET(
   try {
     const decisionId = params.id
     
-    // Get the Authorization header directly from the incoming client request.
     const authHeader = request.headers.get('Authorization')
     
     if (!authHeader) {
@@ -81,12 +78,11 @@ export async function GET(
 
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
     
-    // Pass the original client JWT directly to the FastAPI backend.
     const response = await fetch(`${backendUrl}/decisions/${decisionId}`, { 
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': authHeader, // FORWARD THE CLIENT'S JWT
+        'Authorization': authHeader,
       },
     })
 

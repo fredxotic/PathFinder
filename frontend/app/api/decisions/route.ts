@@ -1,9 +1,12 @@
 // frontend/app/api/decisions/route.ts (MODIFIED)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthHeaders } from '@/lib/auth-headers' // Use the utility function
+
+// Force dynamic rendering since we rely on request.headers (Authorization header)
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  // ... (rest of the code remains the same)
   try {
     const authHeader = request.headers.get('Authorization')
     if (!authHeader) {
