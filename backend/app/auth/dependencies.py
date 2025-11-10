@@ -3,7 +3,7 @@ from fastapi import Header, HTTPException
 from typing import Optional
 import logging
 from jose import jwt 
-from jose.exceptions import JWTError as PyJWTError, ExpiredSignatureError, InvalidSignatureError
+from jose.exceptions import JWTError as PyJWTError, ExpiredSignatureError
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,6 @@ if not SUPABASE_JWT_SECRET:
 
 if not SUPABASE_JWT_SECRET:
     logger.error("FATAL: SUPABASE_JWT_SECRET environment variable is missing!")
-
 
 async def get_current_user_id(authorization: Optional[str] = Header(None)) -> str:
     """
@@ -53,12 +52,9 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
         
     except ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
-    except InvalidSignatureError:
-        # Catch InvalidSignatureError which is necessary for HS256 validation failure
-        raise HTTPException(status_code=401, detail="Invalid token signature")
     except PyJWTError as e:
-        # PyJWTError (aliased from JWTError) catches general structure errors
+        # This catches all JWT errors including signature validation
         logger.error(f"JWT validation failed: {e}")
-        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token")
     except Exception:
         raise HTTPException(status_code=401, detail="Token processing error")
