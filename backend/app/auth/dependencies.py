@@ -2,8 +2,8 @@ import os
 from fastapi import Header, HTTPException
 from typing import Optional
 import logging
-import jwt
-from jwt import PyJWTError, ExpiredSignatureError, InvalidSignatureError
+from jose import jwt 
+from jose.exceptions import JWTError as PyJWTError, ExpiredSignatureError, InvalidSignatureError
 
 logger = logging.getLogger(__name__)
 
@@ -35,15 +35,13 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
         raise HTTPException(status_code=500, detail="Server misconfiguration: Auth secret missing.")
 
     try:
-        # --- FIX: Set verify_aud=False to bypass the Invalid Audience check ---
         payload = jwt.decode(
             token, 
             SUPABASE_JWT_SECRET, 
             algorithms=["HS256"],
             options={"verify_aud": False} # <--- CRUCIAL FIX for Supabase JWT audience
         )
-        # -------------------------------------------------------------------
-        
+                
         # Supabase uses 'sub' (subject) for the user ID (UUID)
         user_id = payload.get("sub")
 
