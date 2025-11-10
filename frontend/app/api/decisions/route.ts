@@ -1,44 +1,26 @@
+// frontend/app/api/decisions/route.ts (MODIFIED)
+
 import { NextRequest, NextResponse } from 'next/server'
+import { getAuthHeaders } from '@/lib/auth-headers' // Use the utility function
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the authorization header from the client
     const authHeader = request.headers.get('Authorization')
-    
     if (!authHeader) {
       return NextResponse.json(
         { error: 'Unauthorized - Please sign in to view decisions' },
         { status: 401 }
       )
     }
-
-    // Verify the user and get their ID
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    
-    const verifyResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        'Authorization': authHeader,
-        'apikey': supabaseKey,
-      },
-    })
-
-    if (!verifyResponse.ok) {
-      return NextResponse.json(
-        { error: 'Invalid authentication' },
-        { status: 401 }
-      )
-    }
-
-    const userData = await verifyResponse.json()
-    const userId = userData.id
-
+    // We no longer try to verify the user here. We trust the browser's 
+    // fetch mechanism and let the FastAPI backend validate the JWT.
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-    
-    const response = await fetch(`${backendUrl}/decisions?user_id=${userId}`, {
+    // The FastAPI endpoint is now secure and gets the user_id from the header.
+    const response = await fetch(`${backendUrl}/decisions`, { // NO user_id QUERY PARAMETER
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': authHeader, // FORWARD THE JWT TO FASTAPI
       },
     })
 

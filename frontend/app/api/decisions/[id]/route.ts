@@ -1,32 +1,32 @@
 // frontend/app/api/decisions/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 
+// DELETE is used for secure deletion of a single decision.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Get the authenticated user
-    const supabase = createRouteHandlerClient({ cookies })
-    const { data: { session } } = await supabase.auth.getSession()
+    const decisionId = params.id
     
-    if (!session?.user) {
+    // Get the Authorization header directly from the incoming client request.
+    const authHeader = request.headers.get('Authorization')
+    
+    if (!authHeader) {
       return NextResponse.json(
-        { error: 'Unauthorized - Please sign in to delete decisions' },
+        { error: 'Unauthorized: Missing Authorization header' },
         { status: 401 }
       )
     }
-
-    const decisionId = params.id
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
     
-    // Make sure to include the user_id in the backend request
-    const response = await fetch(`${backendUrl}/decisions/${decisionId}?user_id=${session.user.id}`, {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+    // Pass the original client JWT directly to the FastAPI backend.
+    const response = await fetch(`${backendUrl}/decisions/${decisionId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': authHeader, // FORWARD THE CLIENT'S JWT
       },
     })
 
@@ -34,24 +34,25 @@ export async function DELETE(
       const errorText = await response.text()
       console.error('Backend error:', errorText)
       
-      // If backend returns 404, it means the decision doesn't exist or doesn't belong to this user
-      if (response.status === 404) {
-        return NextResponse.json(
-          { error: 'Decision not found or you do not have permission to delete it' },
-          { status: 404 }
-        )
+      let errorDetail = 'Failed to delete decision'
+      try {
+        const errorData = JSON.parse(errorText)
+        errorDetail = errorData.detail || errorData.error || errorDetail
+      } catch (e) {
+        // Fallback to generic error text
       }
       
       return NextResponse.json(
-        { error: 'Failed to delete decision' },
+        { error: errorDetail },
         { status: response.status }
       )
     }
 
     const result = await response.json()
     return NextResponse.json(result)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in delete decision API route:', error)
+    // If we reach here, it's a true internal server error.
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -59,36 +60,49 @@ export async function DELETE(
   }
 }
 
+
+// GET is used for fetching a single decision.
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
-    const { data: { session } } = await supabase.auth.getSession()
+    const decisionId = params.id
     
-    if (!session?.user) {
+    // Get the Authorization header directly from the incoming client request.
+    const authHeader = request.headers.get('Authorization')
+    
+    if (!authHeader) {
       return NextResponse.json(
-        { error: 'Unauthorized - Please sign in to view decisions' },
+        { error: 'Unauthorized: Missing Authorization header' },
         { status: 401 }
       )
     }
 
-    const decisionId = params.id
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
     
-    const response = await fetch(`${backendUrl}/decisions/${decisionId}?user_id=${session.user.id}`, {
+    // Pass the original client JWT directly to the FastAPI backend.
+    const response = await fetch(`${backendUrl}/decisions/${decisionId}`, { 
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': authHeader, // FORWARD THE CLIENT'S JWT
       },
     })
 
     if (!response.ok) {
       const errorText = await response.text()
       console.error('Backend error:', errorText)
+      
+      let errorDetail = 'Failed to fetch decision'
+      try {
+        const errorData = JSON.parse(errorText)
+        errorDetail = errorData.detail || errorData.error || errorDetail
+      } catch (e) {
+        // Fallback to generic error text
+      }
       return NextResponse.json(
-        { error: 'Failed to fetch decision' },
+        { error: errorDetail },
         { status: response.status }
       )
     }

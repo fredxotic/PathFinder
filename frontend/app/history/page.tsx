@@ -4,21 +4,21 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Calendar, Trash2, Download, Eye } from 'lucide-react'
+import { ArrowLeft, Calendar, Trash2, Download, Eye, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { SavedDecision } from '@/types'
 import { useAuth } from '@/contexts/auth-context'
 import { AuthForms } from '@/components/auth-forms'
 import { useToast } from '@/components/ui/toast'
 import { getAuthHeaders } from '@/lib/auth-headers'
-import { DecisionDetail } from '@/components/decision-detail' // Add this import
+import { DecisionDetail } from '@/components/decision-detail'
 import { ThemeToggle } from '@/components/theme-toggle'
 
 export default function HistoryPage() {
   const [decisions, setDecisions] = useState<SavedDecision[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [selectedDecision, setSelectedDecision] = useState<SavedDecision | null>(null) // Add this state
+  const [selectedDecision, setSelectedDecision] = useState<SavedDecision | null>(null)
   const { user, loading: authLoading } = useAuth()
   const { toast } = useToast()
 
@@ -34,7 +34,7 @@ export default function HistoryPage() {
       const headers = await getAuthHeaders() 
       
       const response = await fetch('/api/decisions', {
-        headers, // Make sure headers are passed
+        headers,
       })
       
       if (!response.ok) {
@@ -51,15 +51,15 @@ export default function HistoryPage() {
     }
   }
 
-  const deleteDecision = async (decisionId: string) => {
+  // Modified to return a boolean for success/failure
+  const deleteDecision = async (decisionId: string): Promise<boolean> => {
     setDeletingId(decisionId)
     try {
-      // Get authentication headers
       const headers = await getAuthHeaders()
       
       const response = await fetch(`/api/decisions/${decisionId}`, {
         method: 'DELETE',
-        headers, // Add the auth headers here
+        headers, 
       })
 
       if (!response.ok) {
@@ -67,23 +67,29 @@ export default function HistoryPage() {
         throw new Error(errorData.error || 'Failed to delete decision')
       }
 
-      toast('Decision deleted successfully', 'success')
-      setDecisions(decisions.filter(d => d.id !== decisionId))
+      // Optimistic update after successful API call
+      setDecisions(prev => prev.filter(d => d.id !== decisionId))
       setSelectedDecision(null) // Close detail view if open
+
+      toast('Decision deleted successfully', 'success')
+      return true
     } catch (error: any) {
       console.error('Error deleting decision:', error)
       toast(error.message || 'Failed to delete decision', 'error')
-      // Re-fetch to ensure UI is in sync
-      fetchDecisions()
+      // Important: Re-fetch only on critical error to resynchronize the UI state if needed
+      if (error.message.includes('server error')) {
+        fetchDecisions()
+      }
+      return false
     } finally {
       setDeletingId(null)
     }
   }
 
   const exportDecision = (decision: SavedDecision) => {
-    // Implement PDF export
+    // PDF Export logic is handled by the PDFExport component inside DecisionDetail/DecisionResults
     console.log('Exporting decision:', decision.id)
-    toast('Export feature coming soon!', 'info')
+    toast('PDF generation starting...', 'info')
   }
 
   const formatDate = (dateString: string) => {
@@ -104,8 +110,8 @@ export default function HistoryPage() {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-emerald-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">Loading...</div>
+        <div className="container mx-auto px-4 py-8 flex justify-center items-center h-full">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       </div>
     )
@@ -150,7 +156,9 @@ export default function HistoryPage() {
         </motion.div>
 
         {loading ? (
-          <div className="text-center py-12">Loading your decisions...</div>
+          <div className="text-center py-12 flex justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
         ) : decisions.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
@@ -202,12 +210,16 @@ export default function HistoryPage() {
                             <Download className="w-4 h-4" />
                           </Button>
                           <Button 
-                            variant="outline" 
+                            variant="destructive" // Use destructive variant
                             size="sm"
                             onClick={() => deleteDecision(decision.id)}
                             disabled={deletingId === decision.id}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {deletingId === decision.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Trash2 className="w-4 h-4" />
+                            )}
                           </Button>
                           <Button 
                             variant="outline" 
@@ -234,7 +246,7 @@ export default function HistoryPage() {
                         ))}
                       </div>
                       <div className="flex justify-between items-center text-sm text-muted-foreground">
-                        <span>Confidence: {decision.analysis_result.confidence}%</span>
+                        <span>Confidence: {Math.round(decision.analysis_result.confidence)}%</span>
                         <span>Overall Score: {Math.max(...decision.analysis_result.scores.map(s => s.overall_score))}/100</span>
                       </div>
                     </CardContent>

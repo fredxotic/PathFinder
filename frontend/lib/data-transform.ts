@@ -1,7 +1,7 @@
 import { AnalysisResult, OptionScore } from '@/types';
 
 /**
- * Comprehensive validation for backend response
+ * Comprehensive validation for backend response.
  */
 export function validateAnalysisResult(backendData: any): AnalysisResult {
   if (!backendData || typeof backendData !== 'object') {
@@ -58,7 +58,8 @@ export function validateAnalysisResult(backendData: any): AnalysisResult {
 }
 
 /**
- * Validate decision input before sending to backend
+ * Validate decision input before sending to backend.
+ * Returns an array of error messages.
  */
 export function validateDecisionInput(decision: any): string[] {
   const errors: string[] = [];
@@ -96,6 +97,7 @@ export function validateDecisionInput(decision: any): string[] {
       if (typeof priority?.weight !== 'number' || priority.weight < 1 || priority.weight > 10) {
         errors.push(`Priority "${priority?.name || `#${index + 1}`}" must have a weight between 1-10`);
       }
+      // Ensure description is present (mandatory by DecisionInput model)
       if (!priority?.description?.trim()) {
         errors.push(`Priority "${priority?.name || `#${index + 1}`}" must have a description`);
       }

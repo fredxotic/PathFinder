@@ -3,27 +3,38 @@
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { X, Download, Trash2, ArrowLeft } from 'lucide-react'
+import { X, ArrowLeft, Loader2, Trash2 } from 'lucide-react'
 import { SavedDecision } from '@/types'
 import { PDFExport } from '@/components/pdf-export'
 import { useToast } from '@/components/ui/toast'
+import React, { useState } from 'react'
 
 interface DecisionDetailProps {
   decision: SavedDecision
   onClose: () => void
-  onDelete: (decisionId: string) => void
+  onDelete: (decisionId: string) => Promise<boolean> // Modified to return a promise of success
 }
 
 export function DecisionDetail({ decision, onClose, onDelete }: DecisionDetailProps) {
   const { toast } = useToast()
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const handleDelete = async () => {
+    setIsDeleting(true)
     try {
-        onDelete(decision.id)
-        onClose()
+        const success = await onDelete(decision.id)
+        if (success) {
+            // Only close if delete was successful (handled by parent to update list)
+            onClose() 
+        } else {
+            // The parent component should handle the toast on failure, but we ensure one here just in case.
+            toast('Failed to delete decision', 'error')
+        }
     } catch (error) {
         console.error('Error deleting decision:', error)
         toast('Failed to delete decision', 'error')
+    } finally {
+        setIsDeleting(false)
     }
   }
 
@@ -52,7 +63,7 @@ export function DecisionDetail({ decision, onClose, onDelete }: DecisionDetailPr
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center space-x-4">
-            <Button variant="outline" size="sm" onClick={onClose}>
+            <Button variant="outline" size="sm" onClick={onClose} disabled={isDeleting}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
@@ -65,11 +76,22 @@ export function DecisionDetail({ decision, onClose, onDelete }: DecisionDetailPr
           </div>
           <div className="flex items-center space-x-2">
             <PDFExport decision={decision} result={decision.analysis_result} />
-            <Button variant="outline" size="sm" onClick={handleDelete}>
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete
+            <Button 
+                variant="destructive" // Use destructive variant for delete
+                size="sm" 
+                onClick={handleDelete}
+                disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                </>
+              )}
             </Button>
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={isDeleting}>
               <X className="w-4 h-4" />
             </Button>
           </div>

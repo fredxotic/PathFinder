@@ -14,11 +14,9 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-
   useEffect(() => {
     // Get initial session
     const initializeAuth = async () => {
@@ -32,7 +30,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false)
       }
     }
-
     initializeAuth()
 
     // Listen for auth changes
@@ -42,7 +39,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false)
       }
     )
-
     return () => subscription.unsubscribe()
   }, [])
 
@@ -52,7 +48,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email, 
         password 
       })
-      
       return { 
         error: error ? error.message : null,
         data 
@@ -71,7 +66,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email, 
         password 
       })
-      
       return { 
         error: error ? error.message : null,
         data 
@@ -89,14 +83,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
+          // IMPORTANT: This redirect URL must be configured in your Supabase Auth Providers settings.
           redirectTo: `${window.location.origin}/auth/callback`,
         },
       })
-
       return { 
         error: error ? error.message : null,
         data 
       }
+
     } catch (error: any) {
       return { 
         error: error.message || 'An unexpected error occurred during Google sign in',
@@ -111,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { 
         error: error ? error.message : null
       }
+
     } catch (error: any) {
       return { 
         error: error.message || 'An unexpected error occurred during sign out'

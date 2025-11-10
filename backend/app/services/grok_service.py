@@ -315,12 +315,12 @@ Return ONLY valid JSON:"""
         return round(confidence, 1)
     
     async def _fallback_to_mock(self, decision: DecisionInput) -> AnalysisResult:
-        """Fallback to enhanced mock service if Groq API fails"""
-        logger.info("🔄 Falling back to enhanced mock AI service")
+        """Fallback to mock service if Groq API fails"""
+        logger.info("🔄 Falling back to mock AI service")
         try:
             # Try enhanced mock first
-            from app.services.enhanced_mock_ai_service import EnhancedMockAIService
-            mock_service = EnhancedMockAIService()
+            from app.services.mock_ai_service import MockAIService
+            mock_service = MockAIService()
             return await mock_service.analyze_decision(decision)
         except ImportError:
             # Fallback to basic mock

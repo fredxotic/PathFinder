@@ -1,6 +1,45 @@
+Optimized .gitignore for Project Root (Frontend/Backend structure)
+
+--------------------
+
+1. PYTHON (BACKEND)
+
+--------------------
+
+Virtual Environment
+
 .venv/
+
+Byte-compiled files
+
+*.pyc
+pycache/
+
+--------------------
+
+2. JAVASCRIPT (FRONTEND)
+
+--------------------
+
+Node modules
+
 frontend/node_modules
-frontend/.env.local
+/node_modules
+
+Next.js build output
+
 frontend/.next/
-backend/test_supabase.py
+
+Local runtime files
+
+frontend/.env.local
+frontend/npm-debug.log*
+
+--------------------
+
+3. SECRETS (FRONTEND & BACKEND)
+
+--------------------
+
 backend/.env
+frontend/.env

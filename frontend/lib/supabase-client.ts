@@ -7,6 +7,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
+// 1. Export the main client instance
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
@@ -15,8 +16,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 })
 
-// Unified auth helper for authenticated operations
+// 2. Unified helper that ensures authentication and returns the client (used by profile/history pages)
 export const getSupabaseWithAuth = async () => {
+  // CRITICAL: We wait for the session to be established before proceeding.
   const { data: { session } } = await supabase.auth.getSession()
   
   if (!session) {
@@ -26,7 +28,7 @@ export const getSupabaseWithAuth = async () => {
   return supabase
 }
 
-// Auth helper functions with better error handling
+// 3. Auth helper functions with better error handling (no change here)
 export const signUp = async (email: string, password: string) => {
   try {
     const { data, error } = await supabase.auth.signUp({
@@ -84,12 +86,14 @@ export const getCurrentUser = async () => {
   }
 }
 
-// For backward compatibility
+// 4. Update getAuthHeaders to use the session's access_token (this function is crucial for API routes)
 export const getAuthHeaders = async () => {
+  // CRITICAL FIX: Ensure we call getSession() to get the most current token
   const { data: { session } } = await supabase.auth.getSession()
   
   if (!session?.access_token) {
-    throw new Error('No authentication token found')
+    // We throw a more specific error here, which helps the calling API route return a 401
+    throw new Error('No authentication token found in session')
   }
   
   return {

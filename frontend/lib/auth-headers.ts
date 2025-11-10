@@ -4,7 +4,8 @@ export async function getAuthHeaders() {
   const { data: { session } } = await supabase.auth.getSession()
   
   if (!session?.access_token) {
-    throw new Error('No authentication token found')
+    // Reverting to throw a standard error, allowing the consuming route to handle it.
+    throw new Error('No authentication token found in session. Please sign in again.')
   }
   
   return {

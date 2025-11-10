@@ -12,12 +12,13 @@ import { useAuth } from '@/contexts/auth-context'
 import { AuthForms } from '@/components/auth-forms'
 import { AnalysisResult, Decision } from '@/types'
 import { useToast } from '@/components/ui/toast'
-import { getSupabaseWithAuth } from '@/lib/supabase-client'
+import { getAuthHeaders } from '@/lib/auth-headers'
 import { validateDecisionInput } from '@/lib/utils'
 
 export default function Home() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [currentDecision, setCurrentDecision] = useState<Decision | null>(null)
   
   const { user, signOut, loading: authLoading } = useAuth()
@@ -32,56 +33,58 @@ export default function Home() {
     // Validate input before sending
     const validationErrors = validateDecisionInput(decisionData)
     if (validationErrors.length > 0) {
-      toast(`Please fix the following errors: ${validationErrors.join(', ')}`, 'error')
+      toast(`Validation Error: ${validationErrors.join(', ')}`, 'error')
       return
     }
     
-    setIsLoading(true)
+    setIsAnalyzing(true)
     setCurrentDecision(decisionData)
     
     try {
-      const supabase = await getSupabaseWithAuth()
+      // Use auth headers for analyze endpoint too (keeping the logic for future proofing)
+      const headers = await getAuthHeaders()
       
       const response = await fetch('/api/analyze-decision', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(decisionData),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Analysis failed')
+        throw new Error(errorData.detail || errorData.error || 'Analysis failed')
       }
 
       const result = await response.json()
       setAnalysisResult(result)
-      toast('Analysis completed successfully!', 'success')
+      toast('AI Analysis completed successfully!', 'success')
     } catch (error: any) {
       console.error('Error analyzing decision:', error)
       toast(error.message || 'Analysis failed. Please try again.', 'error')
+      // Clear current decision on error
+      setCurrentDecision(null)
     } finally {
-      setIsLoading(false)
+      setIsAnalyzing(false)
     }
   }
 
-  const handleSaveDecision = async () => {
+  const handleSaveDecision = async (): Promise<boolean> => {
     if (!analysisResult || !currentDecision || !user) {
       toast('No decision to save', 'error')
-      return
+      return false
     }
     
+    setIsSaving(true)
+    
     try {
+      const headers = await getAuthHeaders()
+      
       const response = await fetch('/api/save-decision', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
-          decision: currentDecision,
-          result: analysisResult,
-          user_id: user.id
+          decision_input: currentDecision,
+          analysis_result: analysisResult,
         }),
       })
 
@@ -90,19 +93,25 @@ export default function Home() {
         throw new Error(errorData.error || 'Failed to save decision')
       }
 
-      const savedResult = await response.json()
+      await response.json()
       toast('Decision saved successfully! You can view it in your History.', 'success')
-      return savedResult // Return the result so DecisionResults can know it completed
+      return true
     } catch (error: any) {
       console.error('Error saving decision:', error)
-      throw error // Re-throw so DecisionResults can catch it
+      toast(error.message || 'Failed to save decision. Please try again.', 'error')
+      return false
+    } finally {
+      setIsSaving(false)
     }
   }
 
+  const handleNewAnalysis = () => {
+    setAnalysisResult(null)
+    setCurrentDecision(null)
+  }
+
   const handleExportPDF = () => {
-    // Implement PDF export using jsPDF
-    console.log('Exporting PDF...')
-    toast('PDF export feature coming soon!', 'info')
+    // Handled by PDFExport component
   }
 
   const handleSignOut = async () => {
@@ -111,6 +120,9 @@ export default function Home() {
       if (error) {
         throw new Error(error)
       }
+      // Clear any current analysis on sign out
+      setAnalysisResult(null)
+      setCurrentDecision(null)
       toast('Signed out successfully', 'success')
     } catch (error: any) {
       console.error('Error signing out:', error)
@@ -146,6 +158,7 @@ export default function Home() {
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
               className="flex items-center space-x-2"
             >
               <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-lg flex items-center justify-center">
@@ -206,7 +219,7 @@ export default function Home() {
         {!analysisResult ? (
           <DecisionForm 
             onSubmit={handleAnalyzeDecision}
-            isLoading={isLoading}
+            isLoading={isAnalyzing}
           />
         ) : (
           <DecisionResults
