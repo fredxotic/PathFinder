@@ -35,13 +35,14 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
         raise HTTPException(status_code=500, detail="Server misconfiguration: Auth secret missing.")
 
     try:
+        # Note: jwt.decode here comes from the 'jose' package
         payload = jwt.decode(
             token, 
             SUPABASE_JWT_SECRET, 
             algorithms=["HS256"],
-            options={"verify_aud": False} # <--- CRUCIAL FIX for Supabase JWT audience
+            options={"verify_aud": False}
         )
-                
+        
         # Supabase uses 'sub' (subject) for the user ID (UUID)
         user_id = payload.get("sub")
 
@@ -53,8 +54,10 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
     except ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
     except InvalidSignatureError:
+        # Catch InvalidSignatureError which is necessary for HS256 validation failure
         raise HTTPException(status_code=401, detail="Invalid token signature")
     except PyJWTError as e:
+        # PyJWTError (aliased from JWTError) catches general structure errors
         logger.error(f"JWT validation failed: {e}")
         raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
     except Exception:
