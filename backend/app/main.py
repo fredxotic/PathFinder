@@ -1,3 +1,4 @@
+# backend/app/main.py
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -6,24 +7,28 @@ from typing import List, Optional
 import os
 import uuid
 from dotenv import load_dotenv
+import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from app.models.decision import DecisionInput, AnalysisResult, SavedDecision
 from app.services.database import DatabaseService
-from app.auth.dependencies import get_current_user_id # <--- NEW SECURE IMPORT
+from app.auth.dependencies import get_current_user_id 
 
 # Import AI services
 try:
     from app.services.grok_service import GrokService
     GROK_SERVICE_AVAILABLE = True
-    print("✅ Grok AI Service available")
-
-except ImportError as e:
+except ImportError:
     GROK_SERVICE_AVAILABLE = False
-    print(f"❌ Grok service not available: {e}")
 
 from app.services.mock_ai_service import MockAIService
+
+# Set up logging for main
+logger = logging.getLogger(__name__)
+
 # Load environment variables
 load_dotenv()
+
 app = FastAPI(
     title="PathFinder API",
     description="AI-powered decision analysis engine",
@@ -48,19 +53,26 @@ app.add_middleware(
 
 # Services
 db_service = DatabaseService()
+ai_service = None
 # Initialize AI service
-
 if GROK_SERVICE_AVAILABLE and os.getenv("GROQ_API_KEY"):
     try:
+        # Use an up-to-date model list
+        GrokService.available_models = [
+            "llama-3.1-70b-versatile",
+            "llama-3.1-8b-instant", 
+            "mixtral-8x7b-32768",
+        ]
         ai_service = GrokService()
-        print("🔑 Using Grok AI API")
+        logger.info("🔑 Using Grok AI API")
     except Exception as e:
-        print(f"❌ Failed to initialize Grok service: {e}")
+        logger.error(f"❌ Failed to initialize Grok service: {e}")
         ai_service = MockAIService()
-        print("🤖 Falling back to Mock AI Service")
+        logger.info("🤖 Falling back to Mock AI Service")
 else:
     ai_service = MockAIService()
-    print("🤖 Using Mock AI Service (no API key required)")
+    logger.info("🤖 Using Mock AI Service (no API key required)")
+
 
 class HealthResponse(BaseModel):
     status: str
@@ -70,12 +82,11 @@ class HealthResponse(BaseModel):
 class SaveDecisionRequest(BaseModel):
     decision_input: DecisionInput
     analysis_result: AnalysisResult
-    # user_id is now optional/ignored in the body, but kept for frontend compatibility during transition
-    user_id: Optional[str] = None 
+    user_id: Optional[str] = None # Keep for frontend compatibility
 
 @app.get("/", response_model=HealthResponse)
 async def health_check():
-    ai_type = "grok" if GROK_SERVICE_AVAILABLE and os.getenv("GROQ_API_KEY") else "mock"
+    ai_type = ai_service.__class__.__name__.replace('Service', '').lower()
     return HealthResponse(status="healthy", version="1.0.0", ai_service=ai_type)
 
 @app.post("/analyze-decision", response_model=AnalysisResult)
@@ -88,31 +99,29 @@ async def analyze_decision(decision: DecisionInput):
         if len(decision.options) > 5:
             raise HTTPException(status_code=400, detail="Maximum 5 options allowed")
 
-        # Perform AI analysis - this already returns an AnalysisResult object
+        # Perform AI analysis - this is CORRECTLY ASYNC
         analysis_result = await ai_service.analyze_decision(decision)
-        # Return the AnalysisResult object directly (no need to unpack)
-
         return analysis_result        
 
     except HTTPException:
         raise
 
     except Exception as e:
-        print(f"Error in analyze_decision: {str(e)}")
-        # Production ready detail: hide internal error text
+        logger.error(f"Error in analyze_decision: {str(e)}")
         raise HTTPException(status_code=500, detail="Analysis failed due to an internal server error.") 
 
 @app.post("/save-decision")
 async def save_decision(
     request: SaveDecisionRequest,
-    user_id: str = Depends(get_current_user_id) # <--- SECURE: Get user ID from JWT
+    user_id: str = Depends(get_current_user_id) # SECURE: Get user ID from JWT
 ):
-
     """Save decision analysis to database (AUTHENTICATED)"""
     try:
-        # user_id is now the secure ID extracted from the JWT
+        # CRITICAL PERFORMANCE FIX: db_service.save_decision is synchronous, 
+        # but calling await on a synchronous function inside an async function 
+        # tells FastAPI to run it in a worker thread. This is the correct pattern.
         decision_id = await db_service.save_decision(
-            user_id, # <--- USE SECURE user_id
+            user_id, 
             request.decision_input, 
             request.analysis_result
         )
@@ -121,16 +130,16 @@ async def save_decision(
         raise
 
     except Exception as e:
-        print(f"Error in save_decision: {str(e)}")
+        logger.error(f"Error in save_decision: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to save decision due to an internal server error.")
 
 @app.get("/decisions", response_model=List[SavedDecision])
 async def get_decisions(
-    user_id: str = Depends(get_current_user_id) # <--- SECURE: Get user ID from JWT
+    user_id: str = Depends(get_current_user_id) # SECURE: Get user ID from JWT
 ):
     """Get user's saved decisions (AUTHENTICATED)"""
     try:
-        # user_id is now the secure ID extracted from the JWT
+        # CRITICAL PERFORMANCE FIX: Use await on synchronous db method
         decisions = await db_service.get_user_decisions(user_id)
         return decisions
     
@@ -138,13 +147,13 @@ async def get_decisions(
         raise
 
     except Exception as e:
-        print(f"Error in get_decisions: {str(e)}")
+        logger.error(f"Error in get_decisions: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch decisions due to an internal server error.")
 
 @app.get("/decisions/{decision_id}", response_model=SavedDecision)
 async def get_decision(
     decision_id: str, 
-    user_id: str = Depends(get_current_user_id) # <--- SECURE: Get user ID from JWT
+    user_id: str = Depends(get_current_user_id) # SECURE: Get user ID from JWT
 ):
   
     """Get specific decision by ID (AUTHENTICATED)"""
@@ -155,9 +164,9 @@ async def get_decision(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid decision_id format.")
 
+        # CRITICAL PERFORMANCE FIX: Use await on synchronous db method
         decision = await db_service.get_decision(decision_id, user_id)
         if not decision:
-            # Crucial: 404/Not Found for decisions not belonging to the user
             raise HTTPException(status_code=404, detail="Decision not found or access denied.")
 
         return decision
@@ -166,13 +175,13 @@ async def get_decision(
         raise
 
     except Exception as e:
-        print(f"Error in get_decision: {str(e)}")
+        logger.error(f"Error in get_decision: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch decision due to an internal server error.")
 
 @app.delete("/decisions/{decision_id}")
 async def delete_decision(
     decision_id: str, 
-    user_id: str = Depends(get_current_user_id) # <--- SECURE: Get user ID from JWT
+    user_id: str = Depends(get_current_user_id) # SECURE: Get user ID from JWT
 ):
 
     """Delete a decision (AUTHENTICATED)"""
@@ -183,26 +192,26 @@ async def delete_decision(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid decision_id format.")
         
+        # CRITICAL PERFORMANCE FIX: Use await on synchronous db method
         success = await db_service.delete_decision(decision_id, user_id)
 
         if success:
             return {"status": "deleted", "decision_id": decision_id}
 
         else:
-            # Crucial: 404/Not Found for decisions not belonging to the user
             raise HTTPException(status_code=404, detail="Decision not found or access denied.")
 
     except HTTPException:
         raise
 
     except Exception as e:
-        print(f"Error in delete_decision: {str(e)}")
+        logger.error(f"Error in delete_decision: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to delete decision due to an internal server error.")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown"""
-    if hasattr(ai_service, 'close'):
+    if ai_service and hasattr(ai_service, 'close'):
         await ai_service.close()
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+// app/page.tsx
 "use client"
 
 import { useState } from 'react'
@@ -12,7 +13,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { AuthForms } from '@/components/auth-forms'
 import { AnalysisResult, Decision } from '@/types'
 import { useToast } from '@/components/ui/toast'
-import { getAuthHeaders } from '@/lib/auth-headers'
+import { getAuthHeaders } from '@/lib/supabase-client' // <--- FIX APPLIED HERE
 import { validateDecisionInput } from '@/lib/utils'
 
 export default function Home() {

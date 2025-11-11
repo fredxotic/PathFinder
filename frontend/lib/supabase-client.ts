@@ -1,3 +1,4 @@
+// lib/supabase-client.ts
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -86,7 +87,7 @@ export const getCurrentUser = async () => {
   }
 }
 
-// 4. Update getAuthHeaders to use the session's access_token (this function is crucial for API routes)
+// 4. CRITICAL FIX/REFACTOR: Centralize getAuthHeaders logic
 export const getAuthHeaders = async () => {
   // CRITICAL FIX: Ensure we call getSession() to get the most current token
   const { data: { session } } = await supabase.auth.getSession()

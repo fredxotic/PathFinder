@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     
     // Get the authorization header from the client request
-    const authHeader = request.headers.get('Authorization')
+    const authHeader = request.headers.get('Authorization') // <--- Correctly gets token directly
     
     if (!authHeader) {
       return NextResponse.json(

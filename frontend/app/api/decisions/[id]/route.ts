@@ -1,10 +1,10 @@
-// frontend/app/api/decisions/[id]/route.ts
+// app/api/decisions/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 
 // Force dynamic rendering since we rely on request.headers (Authorization header)
 export const dynamic = 'force-dynamic'
 
-// ... (rest of the code remains the same as the final successful local version)
+// DELETE is used for secure deletion of a single decision.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -12,7 +12,16 @@ export async function DELETE(
   try {
     const decisionId = params.id
     
-    const authHeader = request.headers.get('Authorization')
+    // Validate decision ID
+    if (!decisionId || typeof decisionId !== 'string') {
+      return NextResponse.json(
+        { error: 'Invalid decision ID' },
+        { status: 400 }
+      )
+    }
+    
+    // Get the Authorization header directly from the incoming client request.
+    const authHeader = request.headers.get('Authorization') // <--- Correctly gets token directly
     
     if (!authHeader) {
       return NextResponse.json(
@@ -23,11 +32,12 @@ export async function DELETE(
     
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
+    // Pass the original client JWT directly to the FastAPI backend.
     const response = await fetch(`${backendUrl}/decisions/${decisionId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': authHeader,
+        'Authorization': authHeader, // FORWARD THE CLIENT'S JWT
       },
     })
 
@@ -43,6 +53,14 @@ export async function DELETE(
         // Fallback to generic error text
       }
       
+      // Return specific error messages based on status
+      if (response.status === 404) {
+        return NextResponse.json(
+          { error: 'Decision not found or already deleted' },
+          { status: 404 }
+        )
+      }
+      
       return NextResponse.json(
         { error: errorDetail },
         { status: response.status }
@@ -53,6 +71,7 @@ export async function DELETE(
     return NextResponse.json(result)
   } catch (error: any) {
     console.error('Error in delete decision API route:', error)
+    // If we reach here, it's a true internal server error.
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -60,6 +79,7 @@ export async function DELETE(
   }
 }
 
+// GET is used for fetching a single decision.
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -67,7 +87,16 @@ export async function GET(
   try {
     const decisionId = params.id
     
-    const authHeader = request.headers.get('Authorization')
+    // Validate decision ID
+    if (!decisionId || typeof decisionId !== 'string') {
+      return NextResponse.json(
+        { error: 'Invalid decision ID' },
+        { status: 400 }
+      )
+    }
+    
+    // CRITICAL FIX: Get the Authorization header directly from the incoming client request.
+    const authHeader = request.headers.get('Authorization') // <--- Correctly gets token directly
     
     if (!authHeader) {
       return NextResponse.json(
@@ -78,11 +107,12 @@ export async function GET(
 
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
     
+    // Pass the original client JWT directly to the FastAPI backend.
     const response = await fetch(`${backendUrl}/decisions/${decisionId}`, { 
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': authHeader,
+        'Authorization': authHeader, // FORWARD THE CLIENT'S JWT
       },
     })
 
@@ -97,6 +127,14 @@ export async function GET(
       } catch (e) {
         // Fallback to generic error text
       }
+      
+      if (response.status === 404) {
+        return NextResponse.json(
+          { error: 'Decision not found' },
+          { status: 404 }
+        )
+      }
+      
       return NextResponse.json(
         { error: errorDetail },
         { status: response.status }

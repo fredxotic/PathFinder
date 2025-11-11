@@ -195,16 +195,26 @@ Return ONLY valid JSON:"""
                 elif key == "comparative_analysis":
                     analysis_dict[key] = "Further comparison needed between the top options."
         
-        # Ensure scores is a list and has enhanced structure
+        # Ensure scores is a list
         if not isinstance(analysis_dict["scores"], list):
             analysis_dict["scores"] = []
+
         
-        # Check if all options are covered and enhance each score
-        response_options = {score.get("option", f"Option_{i}") for i, score in enumerate(analysis_dict["scores"])}
-        decision_options = set(decision.options)
+        # FIX FOR EXTRA CHART OPTION (DEPLOYMENT BUG):
+        # 1. Map all user-provided options to ensure we only process those.
+        decision_options_set = set(decision.options)
         
-        # Add missing options with enhanced default structure
-        for option in decision_options - response_options:
+        # 2. Filter out any scores that were invented by the AI and are not in the user's options list.
+        # This prevents the AI's hallucinated options (the 'extra option') from reaching the UI.
+        analysis_dict["scores"] = [
+            score for score in analysis_dict["scores"] 
+            if score.get("option") in decision_options_set
+        ]
+        
+        response_options = {score.get("option") for score in analysis_dict["scores"]}
+        
+        # 3. Add missing user-provided options with enhanced default structure (if the AI missed one)
+        for option in decision_options_set - response_options:
             analysis_dict["scores"].append({
                 "option": option,
                 "overall_score": 50,
@@ -236,8 +246,8 @@ Return ONLY valid JSON:"""
                     elif dimension == "opportunities":
                         score[dimension] = ["Potential for positive outcomes"]
         
-        # Ensure recommended_option is valid
-        if (analysis_dict["recommended_option"] not in decision_options and 
+        # Ensure recommended_option is valid (only pick from the user's options)
+        if (analysis_dict["recommended_option"] not in decision_options_set and 
             analysis_dict["scores"]):
             # Pick the option with highest overall score
             best_option = max(analysis_dict["scores"], key=lambda x: x["overall_score"])
@@ -247,8 +257,10 @@ Return ONLY valid JSON:"""
         if len(analysis_dict["summary"].split()) < 15:  # If summary is too brief
             top_option = next((s for s in analysis_dict["scores"] if s["option"] == analysis_dict["recommended_option"]), None)
             if top_option:
+                # Use a cleaner way to get the first priority name for the summary
+                first_priority_name = decision.priorities[0].name if decision.priorities else 'your criteria'
                 analysis_dict["summary"] = (f"{analysis_dict['recommended_option']} is recommended with a score of {top_option['overall_score']}/100, "
-                                     f"demonstrating strong alignment with your key priorities including {list(decision.priorities[0].name) if decision.priorities else 'your criteria'}.")
+                                     f"demonstrating strong alignment with your key priorities including {first_priority_name}.")
         
         return analysis_dict
     

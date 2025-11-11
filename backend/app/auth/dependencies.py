@@ -1,3 +1,4 @@
+# backend/app/auth/dependencies.py
 import os
 from fastapi import Header, HTTPException
 from typing import Optional
@@ -7,15 +8,7 @@ from jose.exceptions import JWTError as PyJWTError, ExpiredSignatureError
 
 logger = logging.getLogger(__name__)
 
-# Fetch the secret key from environment variables
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
-
-# Fallback to SUPABASE_SERVICE_ROLE_KEY if the JWT secret isn't explicitly set (Development/Testing only)
-if not SUPABASE_JWT_SECRET:
-    SUPABASE_JWT_SECRET = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-
-if not SUPABASE_JWT_SECRET:
-    logger.error("FATAL: SUPABASE_JWT_SECRET environment variable is missing!")
+# NOTE: SUPABASE_JWT_SECRET is now fetched inside the function for better runtime robustness.
 
 async def get_current_user_id(authorization: Optional[str] = Header(None)) -> str:
     """
@@ -30,7 +23,11 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
     if scheme.lower() != 'bearer':
         raise HTTPException(status_code=401, detail="Invalid authentication scheme. Must be 'Bearer'")
         
+    SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+
     if not SUPABASE_JWT_SECRET:
+        # CRITICAL FIX: The environment must be configured. This is a 500 error, not 401.
+        logger.error("FATAL: SUPABASE_JWT_SECRET environment variable is missing!")
         raise HTTPException(status_code=500, detail="Server misconfiguration: Auth secret missing.")
 
     try:

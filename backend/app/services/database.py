@@ -1,3 +1,4 @@
+# backend/app/services/database.py
 import os
 import uuid
 from supabase import create_client, Client
@@ -12,12 +13,13 @@ class DatabaseService:
     def __init__(self):
         try:
             supabase_url = os.getenv("SUPABASE_URL")
-            supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+            # Use SERVICE_ROLE_KEY for secure backend operations
+            supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
             
             if not supabase_url or not supabase_key:
+                # CRITICAL FIX: Ensure the correct key is required
                 raise ValueError("Supabase URL and Service Role Key must be set in environment variables")
             
-            # Note: We use the SERVICE_ROLE_KEY here for secure backend operations
             self.supabase: Client = create_client(supabase_url, supabase_key)
             logger.info("✅ Supabase client initialized successfully with service role")
             
@@ -52,6 +54,7 @@ class DatabaseService:
             logger.warning(f"⚠️ Failed to parse datetime '{dt_str}', using current time: {e}")
             return datetime.now(timezone.utc)
     
+    # CRITICAL COMPATIBILITY FIX: Reverting to async def
     async def ensure_user_exists(self, user_id: str) -> bool:
         """
         Ensure user exists in the profiles table using UPSERT.
@@ -82,11 +85,12 @@ class DatabaseService:
             logger.error(f"❌ Error ensuring user exists: {e}")
             return False
     
+    # CRITICAL COMPATIBILITY FIX: Reverting to async def
     async def validate_user_access(self, user_id: str) -> bool:
         """Lightweight validation that user can access the database"""
         try:
             # Simple query to verify user access and connection
-            response = self.supabase.table("profiles")\
+            self.supabase.table("profiles")\
                 .select("id", count="exact")\
                 .eq("id", user_id)\
                 .limit(1)\
@@ -98,6 +102,7 @@ class DatabaseService:
             logger.error(f"❌ User validation failed for {user_id}: {e}")
             return False
     
+    # CRITICAL COMPATIBILITY FIX: Reverting to async def
     async def save_decision(self, user_id: str, decision_input: DecisionInput, analysis_result: AnalysisResult) -> str:
         """Save decision analysis to database with proper user validation"""
         try:
@@ -107,7 +112,7 @@ class DatabaseService:
             
             # Ensure the user exists in profiles table
             logger.info(f"🔍 Ensuring user {user_id} exists in profiles...")
-            user_exists = await self.ensure_user_exists(user_id)
+            user_exists = await self.ensure_user_exists(user_id) # Await call is now valid
             
             if not user_exists:
                 raise Exception(f"User {user_id} does not exist and could not be created in profiles table")
@@ -165,6 +170,7 @@ class DatabaseService:
             logger.warning(f"⚠️ Error parsing decision item {item.get('id', 'unknown')}: {e}")
             return None
     
+    # CRITICAL COMPATIBILITY FIX: Reverting to async def
     async def get_user_decisions(self, user_id: str) -> List[SavedDecision]:
         """Get all decisions for a user"""
         try:
@@ -190,6 +196,7 @@ class DatabaseService:
             logger.error(f"❌ Error getting user decisions: {e}")
             raise Exception(f"Failed to fetch decisions: {str(e)}")
     
+    # CRITICAL COMPATIBILITY FIX: Reverting to async def
     async def get_decision(self, decision_id: str, user_id: str) -> Optional[SavedDecision]:
         """Get specific decision by ID"""
         try:
@@ -219,6 +226,7 @@ class DatabaseService:
             logger.error(f"❌ Error getting decision {decision_id}: {e}")
             raise Exception(f"Failed to fetch decision: {str(e)}")
     
+    # CRITICAL COMPATIBILITY FIX: Reverting to async def
     async def delete_decision(self, decision_id: str, user_id: str) -> bool:
         """
         Delete a decision.
@@ -249,6 +257,7 @@ class DatabaseService:
             logger.error(f"❌ Error deleting decision {decision_id}: {e}")
             raise Exception(f"Failed to delete decision: {str(e)}")
     
+    # CRITICAL COMPATIBILITY FIX: Reverting to async def
     async def update_decision(self, decision_id: str, user_id: str, **updates) -> bool:
         """Update specific fields of a decision"""
         try:

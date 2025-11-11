@@ -74,7 +74,8 @@ Toast.displayName = "Toast"
 export function useToast() {
   const [toasts, setToasts] = React.useState<ToastProps[]>([])
 
-  const toast = (message: string, type: ToastType = "info") => {
+  // FIX: Memoize the `toast` dispatcher function using useCallback.
+  const toast = React.useCallback((message: string, type: ToastType = "info") => {
     const id = Math.random().toString(36).substring(7)
     
     const variantMap = {
@@ -99,7 +100,7 @@ export function useToast() {
     setTimeout(() => {
       setToasts(prev => prev.filter(toast => toast.id !== id))
     }, 5000)
-  }
+  }, []) // Empty dependency array ensures stability.
 
   const ToastContainer = () => (
     <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
@@ -114,10 +115,11 @@ export function useToast() {
     </div>
   )
 
-  return {
+  // FIX: Memoize the returned object to keep the hook's return value stable.
+  return React.useMemo(() => ({
     toast,
     ToastContainer
-  }
+  }), [toasts, toast]); // ToastContainer depends on `toasts`, so we include `toasts` here.
 }
 
 export { Toast }

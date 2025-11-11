@@ -1,6 +1,7 @@
+// app/history/page.tsx
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -10,7 +11,7 @@ import { SavedDecision } from '@/types'
 import { useAuth } from '@/contexts/auth-context'
 import { AuthForms } from '@/components/auth-forms'
 import { useToast } from '@/components/ui/toast'
-import { getAuthHeaders } from '@/lib/auth-headers'
+import { getAuthHeaders } from '@/lib/supabase-client' 
 import { DecisionDetail } from '@/components/decision-detail'
 import { ThemeToggle } from '@/components/theme-toggle'
 
@@ -22,13 +23,15 @@ export default function HistoryPage() {
   const { user, loading: authLoading } = useAuth()
   const { toast } = useToast()
 
-  useEffect(() => {
-    if (user) {
-      fetchDecisions()
+  // Use useCallback with proper dependencies to prevent infinite loops
+  // FIX: Retains stability (no toast dependency)
+  const fetchDecisions = useCallback(async () => {
+    if (!user) {
+      setDecisions([])
+      setLoading(false)
+      return
     }
-  }, [user])
 
-  const fetchDecisions = async () => {
     try {
       setLoading(true)
       const headers = await getAuthHeaders() 
@@ -49,9 +52,15 @@ export default function HistoryPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user, toast]) // Re-including toast dependency here, as it is now stable (fixed in toast.tsx)
 
-  // Modified to return a boolean for success/failure
+  useEffect(() => {
+    // Only fetch when user is available and not loading
+    if (user && !authLoading) {
+      fetchDecisions()
+    }
+  }, [user, authLoading, fetchDecisions])
+
   const deleteDecision = async (decisionId: string): Promise<boolean> => {
     setDeletingId(decisionId)
     try {
@@ -63,22 +72,33 @@ export default function HistoryPage() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to delete decision')
+        const errorText = await response.text()
+        let errorData
+        try {
+            errorData = JSON.parse(errorText)
+        } catch {
+            errorData = { error: response.statusText || 'Unknown deletion error' }
+        }
+        
+        throw new Error(errorData.error || errorData.detail || 'Failed to delete decision')
       }
 
-      // Optimistic update after successful API call
-      setDecisions(prev => prev.filter(d => d.id !== decisionId))
-      setSelectedDecision(null) // Close detail view if open
+      // FIX: Replace optimistic update with full refetch from the server.
+      // This guarantees the UI is synced with the source of truth after deletion.
+      await fetchDecisions();
+      setSelectedDecision(null); // Close detail view if open
 
       toast('Decision deleted successfully', 'success')
       return true
     } catch (error: any) {
       console.error('Error deleting decision:', error)
       toast(error.message || 'Failed to delete decision', 'error')
-      // Important: Re-fetch only on critical error to resynchronize the UI state if needed
-      if (error.message.includes('server error')) {
-        fetchDecisions()
+      
+      // If refetching failed internally, we still need to try to resync.
+      // Now that we rely on fetchDecisions(), this block is less critical, 
+      // but ensures a refetch if the initial deletion attempt fails oddly.
+      if (error.message.includes('server error') || error.message.includes('Failed to delete')) {
+        await fetchDecisions()
       }
       return false
     } finally {
@@ -87,7 +107,6 @@ export default function HistoryPage() {
   }
 
   const exportDecision = (decision: SavedDecision) => {
-    // PDF Export logic is handled by the PDFExport component inside DecisionDetail/DecisionResults
     console.log('Exporting decision:', decision.id)
     toast('PDF generation starting...', 'info')
   }
@@ -210,7 +229,7 @@ export default function HistoryPage() {
                             <Download className="w-4 h-4" />
                           </Button>
                           <Button 
-                            variant="destructive" // Use destructive variant
+                            variant="destructive"
                             size="sm"
                             onClick={() => deleteDecision(decision.id)}
                             disabled={deletingId === decision.id}
