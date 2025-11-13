@@ -1,7 +1,6 @@
-// app/page.tsx
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { DecisionForm } from '@/components/decision-form'
 import { DecisionResults } from '@/components/decision-results'
@@ -13,17 +12,53 @@ import { useAuth } from '@/contexts/auth-context'
 import { AuthForms } from '@/components/auth-forms'
 import { AnalysisResult, Decision } from '@/types'
 import { useToast } from '@/components/ui/toast'
-import { getAuthHeaders } from '@/lib/supabase-client' // <--- FIX APPLIED HERE
+import { getAuthHeaders, getSupabaseWithAuth } from '@/lib/supabase-client'
 import { validateDecisionInput } from '@/lib/utils'
+
+interface UserProfile {
+  id: string
+  full_name: string | null
+  email: string
+}
 
 export default function Home() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [currentDecision, setCurrentDecision] = useState<Decision | null>(null)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   
   const { user, signOut, loading: authLoading } = useAuth()
   const { toast } = useToast()
+
+  // Fetch user profile when user is available
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user) {
+        try {
+          const supabase = await getSupabaseWithAuth()
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('id, full_name, email')
+            .eq('id', user.id)
+            .single()
+
+          if (error) throw error
+          setUserProfile(data)
+        } catch (error: any) {
+          console.error('Error fetching user profile:', error)
+          // Fallback to basic user info
+          setUserProfile({
+            id: user.id,
+            full_name: user.user_metadata?.full_name || null,
+            email: user.email || ''
+          })
+        }
+      }
+    }
+
+    fetchUserProfile()
+  }, [user])
 
   const handleAnalyzeDecision = async (decisionData: Decision) => {
     if (!user) {
@@ -124,11 +159,21 @@ export default function Home() {
       // Clear any current analysis on sign out
       setAnalysisResult(null)
       setCurrentDecision(null)
+      setUserProfile(null)
       toast('Signed out successfully', 'success')
     } catch (error: any) {
       console.error('Error signing out:', error)
       toast(error.message || 'Error signing out', 'error')
     }
+  }
+
+  // Get display name - prefer full name, fallback to email
+  const getDisplayName = () => {
+    if (userProfile?.full_name) {
+      return userProfile.full_name
+    }
+    // Fallback to email if no name is set
+    return user?.email || 'User'
   }
 
   // Show auth forms if not logged in
@@ -213,7 +258,7 @@ export default function Home() {
             for your important life and career choices.
           </p>
           <p className="text-xs sm:text-sm text-muted-foreground mt-2">
-            Welcome back, {user?.email}!
+            Welcome back, {getDisplayName()}!
           </p>
         </motion.div>
 

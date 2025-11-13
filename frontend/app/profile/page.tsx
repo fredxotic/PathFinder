@@ -204,7 +204,7 @@ export default function ProfilePage() {
                   disabled={saving}
                 />
                 <p className="text-xs text-muted-foreground">
-                  This name will be used in your decision history
+                  This name will be used in your decision history and welcome message
                 </p>
               </div>
 
