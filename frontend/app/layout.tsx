@@ -1,3 +1,4 @@
+// frontend/app/layout.tsx
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
@@ -10,6 +11,13 @@ export const metadata: Metadata = {
   title: 'PathFinder - AI Decision Assistant',
   description: 'Make better life and career decisions with AI-powered analysis',
   keywords: ['decision', 'AI', 'career', 'life choices', 'analysis'],
+  // START: MODIFIED BLOCK (ADD ICONS)
+  icons: {
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/apple-icon.png', 
+  },
+  // END: MODIFIED BLOCK (ADD ICONS)
 }
 
 export default function RootLayout({

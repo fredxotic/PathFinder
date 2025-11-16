@@ -1,3 +1,4 @@
+// frontend/components/decision-results.tsx
 "use client"
 
 import { motion } from 'framer-motion'
@@ -11,6 +12,9 @@ import { PDFExport } from '@/components/pdf-export'
 import React, { useState } from 'react'
 import { Decision } from '@/types'
 import { useToast } from '@/components/ui/toast'
+// START: ADDED IMPORT
+import { DecisionMatrix } from './decision-matrix'
+// END: ADDED IMPORT
 
 interface DecisionResultsProps {
   result: AnalysisResult
@@ -121,7 +125,7 @@ export function DecisionResults({ result, decision, onSave, onExport }: Decision
   }, [result.scores, radarData, barData])
 
   // If no valid data, show simplified view
-  if (!result.scores.length || radarData.length === 0) {
+  if (!result.scores.length || (radarData.length === 0 && barData.length === 0)) {
     return (
       <div className="max-w-4xl mx-auto space-y-4">
         <Card>
@@ -227,7 +231,7 @@ export function DecisionResults({ result, decision, onSave, onExport }: Decision
           </Card>
         </motion.div>
 
-        {/* Bar Chart - FIXED: This should now only show actual options */}
+        {/* Bar Chart */}
         <motion.div
           initial={{ x: 20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
@@ -272,11 +276,15 @@ export function DecisionResults({ result, decision, onSave, onExport }: Decision
         </motion.div>
       </div>
 
+      {/* START: MODIFIED BLOCK (ADDED DECISION MATRIX) */}
+      {decision && <DecisionMatrix decision={decision} result={result} />}
+      {/* END: MODIFIED BLOCK (ADDED DECISION MATRIX) */}
+
       {/* Enhanced AI Summary with new analysis fields */}
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.5 }}
+        transition={{ delay: 0.6 }} 
       >
         <Card>
           <CardHeader>
