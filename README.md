@@ -373,7 +373,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **Fred Kaloki**
 - Email: [charlesfred285@gmail.com](mailto:charlesfred285@gmail.com)
 - GitHub: [@fredxotic](https://github.com/fredxotic)
-- Portfolio: [Coming Soon]
 
 ## 🙏 Acknowledgments
 
