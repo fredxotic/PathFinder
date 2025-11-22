@@ -1,11 +1,12 @@
 # 🧭 PathFinder - AI-Powered Decision Intelligence Platform
 
-> **From Analysis Paralysis to Confident Action**
 
 [![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104-green?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com/)
 [![AI Powered](https://img.shields.io/badge/AI%20Powered-Groq%20LLM-FF6B6B?style=for-the-badge)](https://groq.com/)
+
+↗️ [Live Demo](https://pathfinder-eight-sable.vercel.app) 
 
 ## 🎯 The Problem: Decision Fatigue is Real and Costly
 
@@ -368,12 +369,6 @@ npm run lint
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 👨‍💻 Author
-
-**Fred Kaloki**
-- Email: [charlesfred285@gmail.com](mailto:charlesfred285@gmail.com)
-- GitHub: [@fredxotic](https://github.com/fredxotic)
-
 ## 🙏 Acknowledgments
 
 - **Groq** for providing fast LLM inference capabilities
@@ -389,9 +384,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ### **Ready to Make Better Decisions?**
 *Start your journey from analysis paralysis to confident action today*
 
-**↗️ [Live Demo](https://pathfinder-eight-sable.vercel.app) • 🐛 [Report Issue](https://github.com/fredxotic/pathfinder/issues) • 💡 [Request Feature](https://github.com/fredxotic/pathfinder/issues)**
+**• 🐛 [Report Issue](https://github.com/fredxotic/pathfinder/issues) • 💡 [Request Feature](https://github.com/fredxotic/pathfinder/issues)**
 
-*Built with ❤️ by Fred Kaloki - Empowering smarter decisions worldwide*
+*Built with ❤️ - Empowering smarter decisions worldwide*
 
 </div>
 
